@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#6f43c8" />
+  <title>Meowmoon Bowling</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="gameShell" aria-label="Meowmoon Bowling game area">
+    <canvas id="gameCanvas" aria-label="Meowmoon Bowling"></canvas>
+  </main>
+
+  <!-- Mobile browsers usually require a user gesture before music/audio can start.
+       The first tap/spacebar unlocks audio and also launches the first ball. -->
+  <audio id="music" src="music.mp3" preload="auto" loop playsinline></audio>
+
+  <script src="app.js"></script>
+</body>
+</html>
