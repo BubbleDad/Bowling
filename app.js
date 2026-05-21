@@ -150,39 +150,38 @@
 
     const lane = state.lane;
     const s = laneScale();
-    const pinR = clamp(state.w * 0.035, 13, 19);
-    const minGap = pinR * 2.35;
+    // V2: larger, more readable pins while preserving 16-24 pins.
+    const pinR = clamp(state.w * 0.052, 18, 28);
+    const minGap = pinR * 1.72;
     const minGap2 = minGap * minGap;
-    const minX = lane.x + lane.railW * 0.34 + pinR;
-    const maxX = lane.x + lane.w - lane.railW * 0.34 - pinR;
-    const minY = lane.y + clamp(52 * s, 32, 72);
-    const maxY = lane.y + lane.h * 0.64;
+    const minX = lane.x + lane.railW * 0.24 + pinR * 0.75;
+    const maxX = lane.x + lane.w - lane.railW * 0.24 - pinR * 0.75;
+    // Use more vertical play surface than v1 so big pins can breathe.
+    const minY = lane.y + clamp(44 * s, 28, 60);
+    const maxY = lane.y + lane.h * 0.68;
 
     let attempts = 0;
-    while (state.pins.length < state.currentLevelPins && attempts < 2500) {
+    while (state.pins.length < state.currentLevelPins && attempts < 3500) {
       attempts++;
-      // Bias placement toward the upper and middle lane, leaving a launch lane at bottom.
-      const band = Math.random();
-      const xBias = Math.random() < 0.68
-        ? lane.x + lane.w * 0.5 + rand(-lane.w * 0.34, lane.w * 0.34)
+      const rowT = Math.random();
+      const centerBias = Math.random() < 0.58;
+      const xBias = centerBias
+        ? lane.x + lane.w * 0.5 + rand(-lane.w * 0.38, lane.w * 0.38)
         : rand(minX, maxX);
-      const yBias = band < 0.62
-        ? rand(minY, lane.y + lane.h * 0.43)
-        : rand(lane.y + lane.h * 0.43, maxY);
+      const yBias = rowT < 0.50
+        ? rand(minY, lane.y + lane.h * 0.39)
+        : rand(lane.y + lane.h * 0.39, maxY);
 
       const candidate = { x: clamp(xBias, minX, maxX), y: clamp(yBias, minY, maxY) };
       let ok = true;
       for (const p of state.pins) {
-        if (dist2(candidate, p) < minGap2) {
-          ok = false;
-          break;
-        }
+        if (dist2(candidate, p) < minGap2) { ok = false; break; }
       }
       if (!ok) continue;
       state.pins.push(makePin(candidate.x, candidate.y, pinR, choice(PIN_COLORS)));
     }
 
-    // If spacing rules could not place all pins, relax placement.
+    // Relaxed fallback still keeps pins large and visible.
     while (state.pins.length < state.currentLevelPins) {
       const x = rand(minX, maxX);
       const y = rand(minY, maxY);
@@ -190,9 +189,9 @@
     }
 
     resetBall();
-    state.started = state.started; // keep current start state
+    state.started = state.started;
     state.introStart = now();
-    state.introUntil = state.introStart + 1.55;
+    state.introUntil = state.introStart + 1.35;
     state.celebrationUntil = 0;
     state.nextLevelAt = 0;
     state.forceAssistNextRoll = false;
@@ -200,20 +199,24 @@
     state.levelJustLoadedAt = now();
   }
 
+
   function makePin(x, y, r, color) {
     return {
       x, y,
       vx: 0, vy: 0,
       r,
       color,
-      angle: rand(-0.22, 0.22),
+      angle: rand(-0.10, 0.10),
       av: 0,
       knocked: false,
+      // falling is animated from 0 upright to 1 clearly horizontal.
       falling: 0,
       hitFlash: 0,
-      sleep: false
+      sleep: false,
+      lastImpactAt: 0
     };
   }
+
 
   function unlockAudio() {
     if (state.audioReady) return;
@@ -354,24 +357,27 @@
     const dx = target.x - b.x;
     const dy = target.y - b.y;
 
-    // Accessible: heavy assist, gentle tap influence, and a speed that takes about 2-3 seconds.
+    // V2: faster, more forceful roll. The ball should always have energy behind it.
     const len = Math.max(1, Math.hypot(dx, dy));
-    const desiredTime = state.forceAssistNextRoll ? rand(1.85, 2.25) : rand(2.1, 2.65);
-    let speed = clamp(len / desiredTime, state.h * 0.26, state.h * 0.46);
+    const desiredTime = state.forceAssistNextRoll ? rand(1.35, 1.75) : rand(1.55, 2.05);
+    let speed = clamp(len / desiredTime, state.h * 0.42, state.h * 0.72);
 
-    // If assist is not forced, let the user influence the line a little.
+    // User tap still gently influences the line, but not enough to make the game twitchy.
     const tapInfluence = clamp((clientX - (state.lane.x + state.lane.w * 0.5)) / state.lane.w, -0.5, 0.5);
-    const sideNudge = state.forceAssistNextRoll ? 0 : tapInfluence * state.w * 0.065;
+    const sideNudge = state.forceAssistNextRoll ? 0 : tapInfluence * state.w * 0.055;
 
     b.vx = (dx / len) * speed + sideNudge;
     b.vy = (dy / len) * speed;
-    b.spin = rand(-1.5, 1.5);
+    // Ensure the ball always travels upward toward the pin field with meaningful force.
+    b.vy = Math.min(b.vy, -state.h * 0.42);
+    b.spin = rand(-2.4, 2.4);
     state.rolling = true;
     state.rollStartAt = now();
     state.rollHitThisTime = false;
     state.lastRollHit = false;
     startRollSound();
   }
+
 
   function update(dt) {
     const t = now();
@@ -398,17 +404,18 @@
 
     if (state.rolling) {
       const speed = Math.hypot(state.ball.vx, state.ball.vy);
-      const oldEnough = t - state.rollStartAt > 0.75;
-      const tooLong = t - state.rollStartAt > 6.2;
+      const oldEnough = t - state.rollStartAt > 0.95;
+      const tooLong = t - state.rollStartAt > 7.0;
       const belowLane = state.ball.y < state.lane.y - state.ball.r * 2;
-      const stopped = oldEnough && speed < 38;
+      const stopped = oldEnough && speed < 24;
       if (tooLong || belowLane || stopped) {
         finishRoll();
       }
     }
 
     const standing = state.pins.some(p => !p.knocked);
-    if (state.started && !standing && !state.nextLevelAt && state.celebrationUntil < t) {
+    const movingPins = state.pins.some(p => p.knocked && Math.hypot(p.vx, p.vy) > 45);
+    if (state.started && !standing && !movingPins && !state.nextLevelAt && state.celebrationUntil < t) {
       startCelebration();
     }
   }
@@ -419,50 +426,57 @@
     const lane = state.lane;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    b.spin += (b.vx * 0.009) * dt;
+    b.spin += (b.vx * 0.013) * dt;
 
-    // Gentle friction.
-    b.vx *= Math.pow(0.985, dt * 60);
-    b.vy *= Math.pow(0.989, dt * 60);
-
-    // Side bumper walls.
-    const left = lane.x + lane.railW * 0.34 + b.r;
-    const right = lane.x + lane.w - lane.railW * 0.34 - b.r;
-    if (b.x < left) {
-      b.x = left;
-      b.vx = Math.abs(b.vx) * 0.82 + 18;
-      b.vy *= 0.98;
-      playWallBounce();
-      addSparkles(b.x, b.y, 5, "#ffe36a", 0.18);
-    } else if (b.x > right) {
-      b.x = right;
-      b.vx = -Math.abs(b.vx) * 0.82 - 18;
-      b.vy *= 0.98;
-      playWallBounce();
-      addSparkles(b.x, b.y, 5, "#ffe36a", 0.18);
+    // V2: lower friction and minimum travel force before reaching the active pin field.
+    b.vx *= Math.pow(0.993, dt * 60);
+    b.vy *= Math.pow(0.996, dt * 60);
+    const firstPinZone = lane.y + lane.h * 0.70;
+    if (b.y > firstPinZone && b.vy > -state.h * 0.34) {
+      b.vy = -state.h * 0.34;
     }
 
-    // Ball-pin collisions.
+    // Side bumper walls: helpful, energetic rebounds, not dead boundaries.
+    const left = lane.x + lane.railW * 0.28 + b.r;
+    const right = lane.x + lane.w - lane.railW * 0.28 - b.r;
+    if (b.x < left) {
+      b.x = left;
+      b.vx = Math.abs(b.vx) * 0.92 + state.w * 0.05;
+      b.vy = Math.min(b.vy * 0.98, -state.h * 0.30);
+      playWallBounce();
+      addSparkles(b.x, b.y, 7, "#ffe36a", 0.22);
+    } else if (b.x > right) {
+      b.x = right;
+      b.vx = -Math.abs(b.vx) * 0.92 - state.w * 0.05;
+      b.vy = Math.min(b.vy * 0.98, -state.h * 0.30);
+      playWallBounce();
+      addSparkles(b.x, b.y, 7, "#ffe36a", 0.22);
+    }
+
+    // Ball-pin collisions. Upright pins have generous hitboxes; fallen pins can be pushed too.
     for (const p of state.pins) {
-      if (p.knocked && Math.hypot(p.vx, p.vy) < 12) continue;
       const dx = p.x - b.x;
       const dy = p.y - b.y;
-      const minD = b.r * 0.72 + p.r * 1.1; // generous hitbox
+      const hitRadius = p.knocked ? p.r * 1.25 : p.r * 1.45;
+      const minD = b.r * 0.82 + hitRadius;
       const d = Math.hypot(dx, dy);
       if (d > 0 && d < minD) {
         const nx = dx / d, ny = dy / d;
         const push = minD - d;
-        p.x += nx * push * 0.65;
-        p.y += ny * push * 0.65;
+        p.x += nx * push * 0.80;
+        p.y += ny * push * 0.80;
 
-        const impact = Math.max(170, Math.hypot(b.vx, b.vy) * 0.62);
-        p.vx += nx * impact + rand(-45, 45);
-        p.vy += ny * impact + rand(-35, 35);
-        p.av += rand(-6, 6);
+        const ballSpeed = Math.hypot(b.vx, b.vy);
+        const impact = Math.max(360, ballSpeed * 0.88);
+        p.vx += nx * impact + rand(-90, 90);
+        p.vy += ny * impact + rand(-70, 70);
+        p.av += rand(-9, 9);
         knockPin(p, true);
 
-        b.vx -= nx * impact * 0.12;
-        b.vy -= ny * impact * 0.10;
+        // Keep the ball powerful after impacts, while letting impact feel visible.
+        b.vx -= nx * impact * 0.08;
+        b.vy -= ny * impact * 0.06;
+        if (b.vy > -state.h * 0.20) b.vy = -state.h * 0.20;
         state.rollHitThisTime = true;
         state.lastRollHit = true;
         state.forceAssistNextRoll = false;
@@ -470,43 +484,44 @@
     }
   }
 
+
   function updatePins(dt) {
     const lane = state.lane;
-    const minX = lane.x + lane.railW * 0.26;
-    const maxX = lane.x + lane.w - lane.railW * 0.26;
+    const minX = lane.x + lane.railW * 0.20;
+    const maxX = lane.x + lane.w - lane.railW * 0.20;
     const minY = lane.y + 6;
     const maxY = lane.y + lane.h - 6;
 
     for (const p of state.pins) {
-      p.hitFlash = Math.max(0, p.hitFlash - dt * 2.8);
+      p.hitFlash = Math.max(0, p.hitFlash - dt * 3.2);
       if (p.knocked) {
+        // Fast, unmistakable tip-over animation to horizontal.
+        p.falling = clamp(p.falling + dt * 5.2, 0, 1);
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.angle += p.av * dt;
 
-        p.vx *= Math.pow(0.965, dt * 60);
-        p.vy *= Math.pow(0.965, dt * 60);
-        p.av *= Math.pow(0.95, dt * 60);
+        // Fallen pins keep enough momentum to sweep into neighbors.
+        p.vx *= Math.pow(0.982, dt * 60);
+        p.vy *= Math.pow(0.982, dt * 60);
+        p.av *= Math.pow(0.970, dt * 60);
 
-        if (p.x < minX + p.r) {
-          p.x = minX + p.r;
-          p.vx = Math.abs(p.vx) * 0.52;
-        } else if (p.x > maxX - p.r) {
-          p.x = maxX - p.r;
-          p.vx = -Math.abs(p.vx) * 0.52;
-        }
-        if (p.y < minY + p.r) {
-          p.y = minY + p.r;
-          p.vy = Math.abs(p.vy) * 0.52;
-        } else if (p.y > maxY - p.r) {
-          p.y = maxY - p.r;
-          p.vy = -Math.abs(p.vy) * 0.52;
-        }
+        const pad = p.r * 1.15;
+        if (p.x < minX + pad) { p.x = minX + pad; p.vx = Math.abs(p.vx) * 0.70; }
+        else if (p.x > maxX - pad) { p.x = maxX - pad; p.vx = -Math.abs(p.vx) * 0.70; }
+        if (p.y < minY + pad) { p.y = minY + pad; p.vy = Math.abs(p.vy) * 0.70; }
+        else if (p.y > maxY - pad) { p.y = maxY - pad; p.vy = -Math.abs(p.vy) * 0.70; }
       } else {
-        // Tiny idle wobble.
-        p.angle += Math.sin(now() * 2.1 + p.x * 0.02) * 0.0008;
+        // Tiny idle wobble so upright pins feel alive but stable.
+        p.angle += Math.sin(now() * 2.1 + p.x * 0.02) * 0.0007;
       }
     }
+  }
+
+
+  function pinCollisionRadius(p) {
+    // Fallen pins sweep more space, so they can knock over other pins visibly.
+    return p.knocked ? p.r * 2.05 : p.r * 1.18;
   }
 
   function updatePinCollisions(dt) {
@@ -516,40 +531,63 @@
         const a = pins[i], b = pins[j];
         const dx = b.x - a.x, dy = b.y - a.y;
         const d = Math.hypot(dx, dy);
-        const minD = a.r * 1.55 + b.r * 1.55;
+        const minD = pinCollisionRadius(a) + pinCollisionRadius(b);
         if (d > 0 && d < minD) {
           const nx = dx / d, ny = dy / d;
-          const push = (minD - d) * 0.5;
+          const push = (minD - d) * 0.46;
           a.x -= nx * push; a.y -= ny * push;
           b.x += nx * push; b.y += ny * push;
 
-          const rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
-          if (rel > 18) {
-            const impulse = Math.min(280, rel * 0.55);
+          const avx = a.vx || 0, avy = a.vy || 0, bvx = b.vx || 0, bvy = b.vy || 0;
+          const relSpeed = Math.hypot(avx - bvx, avy - bvy);
+          const movingKnockedPin = (a.knocked && Math.hypot(avx, avy) > 28) || (b.knocked && Math.hypot(bvx, bvy) > 28);
+          const directImpact = relSpeed > 34;
+
+          if (movingKnockedPin || directImpact) {
+            const impulse = Math.min(430, Math.max(130, relSpeed * 0.72));
             a.vx -= nx * impulse; a.vy -= ny * impulse;
             b.vx += nx * impulse; b.vy += ny * impulse;
-            a.av += rand(-2.8, 2.8);
-            b.av += rand(-2.8, 2.8);
+            a.av += rand(-4.5, 4.5);
+            b.av += rand(-4.5, 4.5);
+
+            // V2 explicit chain reaction: a fallen/moving pin knocks over upright pins.
             if (a.knocked && !b.knocked) knockPin(b, false);
             if (b.knocked && !a.knocked) knockPin(a, false);
+            if (!a.knocked && !b.knocked && directImpact && relSpeed > 90) {
+              knockPin(a, false);
+              knockPin(b, false);
+            }
           }
         }
       }
     }
   }
 
+
   function knockPin(p, fromBall) {
+    const t = now();
     if (!p.knocked) {
       p.knocked = true;
-      p.falling = 1;
+      p.falling = 0;
       p.hitFlash = 1;
-      p.angle += rand(-0.8, 0.8);
+      p.lastImpactAt = t;
+      // Set an obvious sideways orientation target; drawPin interpolates to horizontal.
+      p.angle += choice([-1, 1]) * rand(0.65, 1.15);
+      // Give every knocked pin sweep force so it can take other pins with it.
+      const speed = Math.hypot(p.vx, p.vy);
+      if (speed < 210) {
+        const a = rand(-Math.PI * 0.92, -Math.PI * 0.08);
+        p.vx += Math.cos(a) * 210;
+        p.vy += Math.sin(a) * 210;
+      }
       playPinFall(fromBall);
-      addSparkles(p.x, p.y, fromBall ? 9 : 5, p.color, 0.34);
+      addSparkles(p.x, p.y, fromBall ? 12 : 7, p.color, 0.42);
     } else {
-      p.hitFlash = Math.max(p.hitFlash, 0.45);
+      p.hitFlash = Math.max(p.hitFlash, 0.48);
+      p.lastImpactAt = t;
     }
   }
+
 
   function finishRoll() {
     state.rolling = false;
@@ -561,6 +599,7 @@
     }
     resetBall();
   }
+
 
   function startCelebration() {
     const t = now();
@@ -773,56 +812,98 @@
   function drawPin(p) {
     ctx.save();
     ctx.translate(p.x, p.y);
-    ctx.rotate(p.angle + (p.knocked ? Math.PI * 0.5 : 0));
     const r = p.r;
-    const scaleY = p.knocked ? 1.0 : 1.28;
+    const fall = p.knocked ? clamp(p.falling, 0, 1) : 0;
+    const visualAngle = p.angle + fall * Math.PI * 0.5;
+    ctx.rotate(visualAngle);
 
-    ctx.shadowColor = "rgba(55, 28, 15, 0.28)";
-    ctx.shadowBlur = 9;
-    ctx.shadowOffsetY = 5;
+    // Larger and clearer v2 pin. Fallen pins are unmistakably horizontal.
+    ctx.shadowColor = "rgba(55, 28, 15, 0.30)";
+    ctx.shadowBlur = 11;
+    ctx.shadowOffsetY = p.knocked ? 3 : 6;
 
-    // Pin body as stacked rounded shapes.
-    ctx.fillStyle = p.color;
-    ctx.strokeStyle = "rgba(70, 35, 70, 0.25)";
-    ctx.lineWidth = 1.2;
+    const bodyH = r * 2.35;
+    const bodyW = r * 1.18;
+    const neckW = r * 0.72;
+    const neckH = r * 0.92;
+    const downSquash = p.knocked ? 0.92 : 1.0;
 
+    // Base/body gradient.
+    const g = ctx.createLinearGradient(-r, -bodyH * 0.45, r, bodyH * 0.55);
+    g.addColorStop(0, lighten(p.color, 0.34));
+    g.addColorStop(0.45, p.color);
+    g.addColorStop(1, shade(p.color, 0.22));
+    ctx.fillStyle = g;
+    ctx.strokeStyle = "rgba(58, 30, 75, 0.36)";
+    ctx.lineWidth = Math.max(2, r * 0.095);
+
+    // Lower belly.
     ctx.beginPath();
-    ctx.ellipse(0, r * 0.16, r * 0.72, r * 1.05 * scaleY, 0, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
+    ctx.ellipse(0, r * 0.32, bodyW * 0.55, bodyH * 0.45 * downSquash, 0, 0, TAU);
+    ctx.fill(); ctx.stroke();
 
+    // Neck/head.
     ctx.beginPath();
-    ctx.ellipse(0, -r * 0.62 * scaleY, r * 0.48, r * 0.54, 0, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
+    ctx.ellipse(0, -r * 0.72, neckW * 0.55, neckH * 0.62, 0, 0, TAU);
+    ctx.fill(); ctx.stroke();
 
-    // Highlight
+    // Chunky foot/base cap.
+    ctx.beginPath();
+    ctx.ellipse(0, r * 1.20, bodyW * 0.62, r * 0.28, 0, 0, TAU);
+    ctx.fill(); ctx.stroke();
+
     ctx.shadowColor = "transparent";
-    ctx.globalAlpha = 0.28;
+
+    // White toy-bowling stripe around neck.
+    ctx.strokeStyle = "#fff7ea";
+    ctx.lineWidth = Math.max(3, r * 0.18);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.40, -r * 0.54);
+    ctx.lineTo(r * 0.40, -r * 0.54);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(2, r * 0.10);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.35, -r * 0.36);
+    ctx.lineTo(r * 0.35, -r * 0.36);
+    ctx.stroke();
+
+    // Gloss highlight.
+    ctx.globalAlpha = 0.34;
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
-    ctx.ellipse(-r * 0.24, -r * 0.2, r * 0.17, r * 0.58, -0.2, 0, TAU);
+    ctx.ellipse(-r * 0.28, r * 0.18, r * 0.14, r * 0.70, -0.12, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Neck stripes
-    ctx.strokeStyle = "#fff7ea";
-    ctx.lineWidth = Math.max(2, r * 0.17);
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.42, -r * 0.48 * scaleY);
-    ctx.lineTo(r * 0.42, -r * 0.48 * scaleY);
-    ctx.stroke();
+    // A little visible star/spot so the pin feels toy-like.
+    ctx.save();
+    ctx.translate(r * 0.26, r * 0.48);
+    ctx.rotate(-visualAngle);
+    drawStar(0, 0, r * 0.22, "#fff3b0", 0.86);
+    ctx.restore();
+
+    // Down-state shadow strip makes fallen pins visually distinct.
+    if (p.knocked) {
+      ctx.globalAlpha = 0.23;
+      ctx.fillStyle = "#2d184f";
+      ctx.beginPath();
+      ctx.ellipse(0, r * 1.42, r * 0.95, r * 0.12, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
 
     if (p.hitFlash > 0) {
-      ctx.globalAlpha = p.hitFlash * 0.4;
+      ctx.globalAlpha = p.hitFlash * 0.36;
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.ellipse(0, 0, r * 0.9, r * 1.35, 0, 0, TAU);
+      ctx.ellipse(0, 0, r * 0.95, r * 1.45, 0, 0, TAU);
       ctx.fill();
     }
 
     ctx.restore();
   }
+
 
   function drawBall() {
     const b = state.ball;
@@ -942,32 +1023,62 @@
   }
 
   function drawYarnBall(r, v) {
-    ctx.fillStyle = v.base;
+    ctx.save();
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(35,20,60,0.25)";
+    ctx.clip();
+
+    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.38, r * 0.10, 0, 0, r);
+    g.addColorStop(0, lighten(v.base, 0.38));
+    g.addColorStop(0.62, v.base);
+    g.addColorStop(1, shade(v.base, 0.24));
+    ctx.fillStyle = g;
+    ctx.fillRect(-r, -r, r * 2, r * 2);
+
+    // Dense overlapping yarn strands, closer to the sample image and less like simple lines.
+    ctx.lineCap = "round";
+    const colors = [v.accent, lighten(v.base, 0.28), shade(v.base, 0.16), "rgba(255,255,255,0.52)"];
+    for (let pass = 0; pass < 4; pass++) {
+      ctx.strokeStyle = colors[pass];
+      ctx.globalAlpha = pass === 3 ? 0.55 : 0.82;
+      ctx.lineWidth = Math.max(2.2, r * (pass === 0 ? 0.105 : 0.065));
+      const rot = [-0.75, 0.38, 1.12, -1.38][pass];
+      ctx.save();
+      ctx.rotate(rot);
+      for (let i = -7; i <= 7; i++) {
+        const yy = i * r * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(-r * 1.25, yy + Math.sin(i) * r * 0.05);
+        ctx.bezierCurveTo(-r * 0.55, yy - r * 0.23, r * 0.42, yy + r * 0.23, r * 1.25, yy - Math.cos(i) * r * 0.05);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // A few thick wrap bands crossing the front.
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = lighten(v.base, 0.18);
+    ctx.lineWidth = Math.max(3, r * 0.12);
+    for (const rot of [-0.28, 0.64, -1.08]) {
+      ctx.save();
+      ctx.rotate(rot);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.96, r * 0.34, 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(35,20,60,0.28)";
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
     ctx.stroke();
 
-    ctx.save();
-    ctx.strokeStyle = v.accent;
-    ctx.lineWidth = Math.max(2, r * 0.08);
-    ctx.globalAlpha = 0.78;
-    for (let i = -4; i <= 4; i++) {
-      ctx.beginPath();
-      ctx.ellipse(0, i * r * 0.12, r * 0.95, r * 0.18, rand(-0.5, 0.5), 0, TAU);
-      ctx.stroke();
-    }
-    ctx.rotate(1.0);
-    for (let i = -3; i <= 3; i++) {
-      ctx.beginPath();
-      ctx.ellipse(0, i * r * 0.13, r * 0.92, r * 0.16, 0, 0, TAU);
-      ctx.stroke();
-    }
-    ctx.restore();
     drawBallFace(r, v.face);
   }
+
 
   function drawBallFace(r, color) {
     ctx.fillStyle = color;
@@ -1289,6 +1400,16 @@
     r = Math.round(lerp(r, 255, amount));
     g = Math.round(lerp(g, 255, amount));
     b = Math.round(lerp(b, 255, amount));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function shade(hex, amount) {
+    const c = hex.replace("#", "");
+    const n = parseInt(c, 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.round(lerp(r, 0, amount));
+    g = Math.round(lerp(g, 0, amount));
+    b = Math.round(lerp(b, 0, amount));
     return `rgb(${r},${g},${b})`;
   }
 
