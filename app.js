@@ -10,103 +10,102 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const rand = (min, max) => min + Math.random() * (max - min);
   const randInt = (min, max) => Math.floor(rand(min, max + 1));
-  const choice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const dist2 = (a, b) => {
-    const dx = a.x - b.x, dy = a.y - b.y;
-    return dx * dx + dy * dy;
-  };
+  const choice = arr => arr[Math.floor(Math.random() * arr.length)];
   const now = () => performance.now() / 1000;
+  const ease = t => t * t * (3 - 2 * t);
+
+  const PIN_COLORS = ["#ef4f69", "#ff8833", "#ffd24f", "#68c94a", "#28a7e9", "#875ae2", "#ff6ab8", "#24c9b9"];
 
   const state = {
-    w: 0,
-    h: 0,
-    dpr: 1,
+    w: 0, h: 0, dpr: 1,
     lane: null,
     started: false,
     audioReady: false,
     audioCtx: null,
     currentLevelPins: 20,
-    introUntil: 0,
     introStart: 0,
-    celebrationUntil: 0,
+    introUntil: 0,
     celebrationStart: 0,
+    celebrationUntil: 0,
     nextLevelAt: 0,
-    rolling: false,
-    rollStartAt: 0,
-    lastRollHit: true,
-    forceAssistNextRoll: false,
     ball: null,
-    ballSeed: 1,
     ballCategory: "cat",
-    ballVariant: {},
     pins: [],
     sparkles: [],
-    stars: [],
-    tapHintPulse: 0,
-    lastT: now(),
+    rolling: false,
+    rollStartAt: 0,
+    rollHitThisTime: false,
+    forceAssistNextRoll: false,
     rollSound: null,
-    levelJustLoadedAt: 0
+    tapPulse: 0,
+    lastT: now(),
+    paused: false,
+    pauseTimer: null,
+    pauseBeganAt: 0,
+    wasHiddenPaused: false
   };
-
-  const PIN_COLORS = [
-    "#ed4b63", "#ff7c2f", "#ffbd3b", "#52bf3e", "#1fa7e8",
-    "#7d55df", "#f05bb5", "#21bebc", "#d94a38", "#7bd33b"
-  ];
 
   function setupCanvas() {
     const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
     const cssW = Math.max(320, window.innerWidth || document.documentElement.clientWidth || 360);
     const cssH = Math.max(480, window.innerHeight || document.documentElement.clientHeight || 640);
-
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    state.w = cssW;
-    state.h = cssH;
-    state.dpr = dpr;
-
-    const safeTop = 10;
-    const safeBottom = 8;
-    const railW = clamp(cssW * 0.075, 22, 42);
+    state.w = cssW; state.h = cssH; state.dpr = dpr;
     state.lane = {
-      x: railW * 0.72,
-      y: safeTop,
-      w: cssW - railW * 1.44,
-      h: cssH - safeTop - safeBottom,
-      railW
+      cx: cssW * 0.5,
+      topY: cssH * 0.155,
+      bottomY: cssH * 0.985,
+      topW: cssW * 0.48,
+      bottomW: cssW * 1.14,
+      railTopW: cssW * 0.82,
+      railBottomW: cssW * 1.38,
+      deckY: cssH * 0.155
     };
-
     if (!state.ball) resetBall();
     if (!state.pins.length) newLevel();
-    else keepObjectsInsideLane();
   }
 
-  function keepObjectsInsideLane() {
-    const lane = state.lane;
-    for (const p of state.pins) {
-      p.x = clamp(p.x, lane.x + p.r + 4, lane.x + lane.w - p.r - 4);
-      p.y = clamp(p.y, lane.y + p.r + 4, lane.y + lane.h - p.r - 4);
-    }
-    resetBall();
+  function laneWidthAt(yw) {
+    const t = ease(clamp(yw, 0, 1));
+    return lerp(state.lane.topW, state.lane.bottomW, t);
   }
 
-  function laneScale() {
-    return Math.min(state.w / 390, state.h / 760);
+  function railWidthAt(yw) {
+    const t = ease(clamp(yw, 0, 1));
+    return lerp(state.lane.railTopW, state.lane.railBottomW, t);
+  }
+
+  function screenY(yw) {
+    return lerp(state.lane.topY, state.lane.bottomY, clamp(yw, 0, 1));
+  }
+
+  function perspectiveScale(yw) {
+    return lerp(0.72, 2.25, ease(clamp(yw, 0, 1)));
+  }
+
+  function project(xw, yw) {
+    const sy = screenY(yw);
+    const width = laneWidthAt(yw);
+    return { x: state.lane.cx + (xw - 0.5) * width, y: sy, scale: perspectiveScale(yw), width };
+  }
+
+  function unprojectX(clientX, yw) {
+    const width = laneWidthAt(yw);
+    return clamp(0.5 + (clientX - state.lane.cx) / width, 0.05, 0.95);
   }
 
   function resetBall() {
-    if (!state.lane) return;
-    const s = laneScale();
-    const r = clamp(state.w * 0.08, 25, 38);
     state.ball = {
-      x: state.lane.x + state.lane.w * 0.5,
-      y: state.lane.y + state.lane.h - clamp(82 * s, 66, 104),
+      x: 0.5,
+      y: 0.90,
       vx: 0,
       vy: 0,
-      r,
+      r: 0.054,
       spin: 0
     };
     state.rolling = false;
@@ -114,120 +113,68 @@
   }
 
   function pickBallVariant() {
-    const category = choice(["cat", "toy", "yarn"]);
-    let variant;
-    if (category === "cat") {
-      variant = {
-        base: choice(["#8c5ae6", "#f8f2e8", "#f7a43a", "#73c7ff"]),
-        patch: choice(["#5a3da3", "#33364a", "#ff9f2f", "#ffffff"]),
-        ear: choice(["#ff8ab3", "#ffa6bd", "#ffd1dc"]),
-        face: "#27213b"
-      };
-    } else if (category === "toy") {
-      variant = {
-        base: choice(["#2f8cf0", "#7d55df", "#ff7c2f", "#21bebc", "#f05bb5"]),
-        deco: choice(["stars", "dots", "paw"]),
-        accent: choice(["#ffe36a", "#ffffff", "#ff9fd0"])
-      };
-    } else {
-      variant = {
-        base: choice(["#ff77b7", "#68c3ff", "#ffb24a", "#a476ff", "#7ee075"]),
-        accent: choice(["#ffd2e8", "#ffffff", "#ffc1da", "#ffeeaa"]),
-        face: "#2a2141"
-      };
-    }
-    state.ballCategory = category;
-    state.ballVariant = variant;
-    state.ballSeed++;
+    // V3: only the selected ball directions: Cat-Faced Option 2 and Yarn Option 3.
+    state.ballCategory = Math.random() < 0.52 ? "cat" : "yarn";
+  }
+
+  function makePin(x, y, color) {
+    return {
+      x, y,
+      vx: 0, vy: 0,
+      r: 0.044,
+      color,
+      angle: rand(-0.04, 0.04),
+      av: 0,
+      knocked: false,
+      falling: 0,
+      hitFlash: 0,
+      lastImpactAt: 0
+    };
   }
 
   function newLevel() {
     state.currentLevelPins = randInt(16, 24);
     state.pins = [];
     state.sparkles = [];
-    state.stars = [];
     pickBallVariant();
 
-    const lane = state.lane;
-    const s = laneScale();
-    // V2: larger, more readable pins while preserving 16-24 pins.
-    const pinR = clamp(state.w * 0.052, 18, 28);
-    const minGap = pinR * 1.72;
-    const minGap2 = minGap * minGap;
-    const minX = lane.x + lane.railW * 0.24 + pinR * 0.75;
-    const maxX = lane.x + lane.w - lane.railW * 0.24 - pinR * 0.75;
-    // Use more vertical play surface than v1 so big pins can breathe.
-    const minY = lane.y + clamp(44 * s, 28, 60);
-    const maxY = lane.y + lane.h * 0.68;
-
+    // Perspective v3: pins are concentrated in the far half of the alley, but spread enough for 16-24 large pins.
+    const minX = 0.14, maxX = 0.86;
+    const minY = 0.13, maxY = 0.53;
+    const minGap = 0.074;
     let attempts = 0;
-    while (state.pins.length < state.currentLevelPins && attempts < 3500) {
+    while (state.pins.length < state.currentLevelPins && attempts < 5000) {
       attempts++;
-      const rowT = Math.random();
-      const centerBias = Math.random() < 0.58;
-      const xBias = centerBias
-        ? lane.x + lane.w * 0.5 + rand(-lane.w * 0.38, lane.w * 0.38)
-        : rand(minX, maxX);
-      const yBias = rowT < 0.50
-        ? rand(minY, lane.y + lane.h * 0.39)
-        : rand(lane.y + lane.h * 0.39, maxY);
-
-      const candidate = { x: clamp(xBias, minX, maxX), y: clamp(yBias, minY, maxY) };
+      const band = Math.random();
+      const y = band < 0.42 ? rand(minY, 0.30) : band < 0.78 ? rand(0.30, 0.43) : rand(0.43, maxY);
+      const center = 0.5 + rand(-0.08, 0.08);
+      const spread = lerp(0.23, 0.40, clamp((y - minY) / (maxY - minY), 0, 1));
+      const x = Math.random() < 0.68 ? center + rand(-spread, spread) : rand(minX, maxX);
+      const c = { x: clamp(x, minX, maxX), y };
       let ok = true;
       for (const p of state.pins) {
-        if (dist2(candidate, p) < minGap2) { ok = false; break; }
+        const dx = (p.x - c.x) * 1.15;
+        const dy = (p.y - c.y);
+        if (Math.hypot(dx, dy) < minGap) { ok = false; break; }
       }
-      if (!ok) continue;
-      state.pins.push(makePin(candidate.x, candidate.y, pinR, choice(PIN_COLORS)));
+      if (ok) state.pins.push(makePin(c.x, c.y, choice(PIN_COLORS)));
     }
-
-    // Relaxed fallback still keeps pins large and visible.
     while (state.pins.length < state.currentLevelPins) {
-      const x = rand(minX, maxX);
-      const y = rand(minY, maxY);
-      state.pins.push(makePin(x, y, pinR, choice(PIN_COLORS)));
+      state.pins.push(makePin(rand(minX, maxX), rand(minY, maxY), choice(PIN_COLORS)));
     }
 
     resetBall();
-    state.started = state.started;
     state.introStart = now();
-    state.introUntil = state.introStart + 1.35;
+    state.introUntil = state.introStart + 1.4;
     state.celebrationUntil = 0;
     state.nextLevelAt = 0;
     state.forceAssistNextRoll = false;
-    state.lastRollHit = true;
-    state.levelJustLoadedAt = now();
   }
-
-
-  function makePin(x, y, r, color) {
-    return {
-      x, y,
-      vx: 0, vy: 0,
-      r,
-      color,
-      angle: rand(-0.10, 0.10),
-      av: 0,
-      knocked: false,
-      // falling is animated from 0 upright to 1 clearly horizontal.
-      falling: 0,
-      hitFlash: 0,
-      sleep: false,
-      lastImpactAt: 0
-    };
-  }
-
 
   function unlockAudio() {
-    if (state.audioReady) return;
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext && !state.audioCtx) {
-      state.audioCtx = new AudioContext();
-    }
-    if (state.audioCtx && state.audioCtx.state === "suspended") {
-      state.audioCtx.resume().catch(() => {});
-    }
-    // Start music from the user gesture. It may fail in some browsers; gameplay continues.
+    if (AudioContext && !state.audioCtx) state.audioCtx = new AudioContext();
+    if (state.audioCtx && state.audioCtx.state === "suspended") state.audioCtx.resume().catch(() => {});
     if (musicEl) {
       musicEl.volume = 0.48;
       const p = musicEl.play();
@@ -236,9 +183,9 @@
     state.audioReady = true;
   }
 
-  function playTone({ type = "sine", freq = 440, endFreq = null, duration = 0.12, volume = 0.1, attack = 0.005 }) {
+  function playTone({ type = "sine", freq = 440, endFreq = null, duration = 0.12, volume = 0.08, attack = 0.005 }) {
     const ac = state.audioCtx;
-    if (!ac) return;
+    if (!ac || state.paused) return;
     const t0 = ac.currentTime;
     const osc = ac.createOscillator();
     const gain = ac.createGain();
@@ -248,390 +195,310 @@
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(volume, t0 + attack);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    osc.connect(gain);
-    gain.connect(ac.destination);
-    osc.start(t0);
-    osc.stop(t0 + duration + 0.02);
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + duration + 0.03);
   }
 
   function playWallBounce() {
-    playTone({ type: "triangle", freq: 210, endFreq: 150, duration: 0.11, volume: 0.07 });
-    setTimeout(() => playTone({ type: "sine", freq: 520, endFreq: 360, duration: 0.08, volume: 0.045 }), 8);
+    playTone({ type: "triangle", freq: 240, endFreq: 150, duration: 0.10, volume: 0.08 });
+    setTimeout(() => playTone({ type: "sine", freq: 560, endFreq: 380, duration: 0.07, volume: 0.05 }), 9);
   }
 
   function playPinFall(strong = false) {
-    playTone({ type: "triangle", freq: strong ? 420 : 340, endFreq: strong ? 170 : 210, duration: strong ? 0.17 : 0.12, volume: strong ? 0.105 : 0.075 });
-    setTimeout(() => playTone({ type: "square", freq: 120, endFreq: 80, duration: 0.06, volume: 0.018 }), 20);
+    playTone({ type: "triangle", freq: strong ? 480 : 380, endFreq: strong ? 150 : 190, duration: strong ? 0.18 : 0.13, volume: strong ? 0.12 : 0.08 });
+    setTimeout(() => playTone({ type: "square", freq: 110, endFreq: 75, duration: 0.05, volume: 0.018 }), 25);
   }
 
   function playMeow() {
-    // Cute synthetic meow: upward chirp, then downward tail.
-    playTone({ type: "sine", freq: 520, endFreq: 820, duration: 0.16, volume: 0.12 });
-    setTimeout(() => playTone({ type: "triangle", freq: 820, endFreq: 420, duration: 0.34, volume: 0.13 }), 145);
+    playTone({ type: "sine", freq: 520, endFreq: 860, duration: 0.16, volume: 0.12 });
+    setTimeout(() => playTone({ type: "triangle", freq: 860, endFreq: 430, duration: 0.34, volume: 0.13 }), 150);
   }
 
   function startRollSound() {
-    if (!state.audioCtx || state.rollSound) return;
+    if (!state.audioCtx || state.rollSound || state.paused) return;
     const ac = state.audioCtx;
     const osc = ac.createOscillator();
     const gain = ac.createGain();
     osc.type = "sawtooth";
-    osc.frequency.value = 74;
+    osc.frequency.value = 80;
     gain.gain.value = 0.0001;
-    osc.connect(gain);
-    gain.connect(ac.destination);
+    osc.connect(gain); gain.connect(ac.destination);
     osc.start();
     state.rollSound = { osc, gain };
   }
 
   function updateRollSound() {
-    if (!state.rollSound || !state.ball) return;
-    const ac = state.audioCtx;
+    if (!state.rollSound || !state.ball || !state.audioCtx) return;
     const speed = Math.hypot(state.ball.vx, state.ball.vy);
-    const target = clamp(speed / 900, 0, 0.055);
-    state.rollSound.gain.gain.setTargetAtTime(target, ac.currentTime, 0.025);
-    state.rollSound.osc.frequency.setTargetAtTime(60 + speed * 0.04, ac.currentTime, 0.04);
+    state.rollSound.gain.gain.setTargetAtTime(clamp(speed * 0.11, 0, 0.06), state.audioCtx.currentTime, 0.025);
+    state.rollSound.osc.frequency.setTargetAtTime(60 + speed * 55, state.audioCtx.currentTime, 0.035);
   }
 
   function stopRollSound() {
-    if (!state.rollSound || !state.audioCtx) return;
-    const ac = state.audioCtx;
+    if (!state.rollSound) return;
     const { osc, gain } = state.rollSound;
-    gain.gain.setTargetAtTime(0.0001, ac.currentTime, 0.03);
-    setTimeout(() => {
-      try { osc.stop(); } catch (e) {}
-    }, 110);
+    if (state.audioCtx) gain.gain.setTargetAtTime(0.0001, state.audioCtx.currentTime, 0.02);
+    setTimeout(() => { try { osc.stop(); } catch (e) {} }, 80);
     state.rollSound = null;
   }
 
-  function handleStartOrRoll(clientX, clientY) {
-    unlockAudio();
-
-    if (!state.started) {
-      state.started = true;
-      launchBall(clientX, clientY);
-      return;
-    }
-
-    if (state.celebrationUntil > now() || state.nextLevelAt > now()) return;
-    if (!state.rolling) {
-      launchBall(clientX, clientY);
-    }
-  }
-
   function targetForTap(clientX) {
-    const lane = state.lane;
-    const standingPins = state.pins.filter(p => !p.knocked);
-    if (!standingPins.length) return { x: lane.x + lane.w * 0.5, y: lane.y + lane.h * 0.25 };
-
-    const tapT = clamp((clientX - lane.x) / lane.w, 0.05, 0.95);
-    const intendedX = lane.x + lane.w * tapT;
-
-    // If one pin is clearly closest to the horizontal tap aim, target it.
-    let sorted = standingPins
-      .map(p => ({ p, d: Math.abs(p.x - intendedX) + Math.abs(p.y - (lane.y + lane.h * 0.36)) * 0.10 }))
-      .sort((a, b) => a.d - b.d);
-    if (sorted.length === 1 || sorted[0].d + lane.w * 0.055 < sorted[1].d) {
-      return { x: sorted[0].p.x, y: sorted[0].p.y };
-    }
-
-    // Otherwise target a small cluster centroid.
+    const standing = state.pins.filter(p => !p.knocked);
+    if (!standing.length) return { x: 0.5, y: 0.24 };
+    const aimX = unprojectX(clientX, 0.50);
+    const sorted = standing.map(p => ({ p, d: Math.abs(p.x - aimX) + Math.abs(p.y - 0.34) * 0.20 })).sort((a, b) => a.d - b.d);
+    // Clearly closest single pin gets the assist.
+    if (sorted.length === 1 || sorted[0].d + 0.055 < sorted[1].d) return { x: sorted[0].p.x, y: sorted[0].p.y };
+    // Otherwise target a useful mini-cluster.
     const near = sorted.slice(0, Math.min(5, sorted.length)).map(o => o.p);
     let cx = 0, cy = 0;
-    for (const p of near) { cx += p.x; cy += p.y; }
-    cx /= near.length;
-    cy /= near.length;
-
-    // Tap influences the shot gently.
-    cx = lerp(cx, intendedX, state.forceAssistNextRoll ? 0.12 : 0.24);
-    return { x: clamp(cx, lane.x + 28, lane.x + lane.w - 28), y: cy };
+    near.forEach(p => { cx += p.x; cy += p.y; });
+    cx /= near.length; cy /= near.length;
+    cx = lerp(cx, aimX, state.forceAssistNextRoll ? 0.10 : 0.22);
+    return { x: clamp(cx, 0.08, 0.92), y: cy };
   }
 
-  function launchBall(clientX, clientY) {
-    if (!state.ball) resetBall();
+  function launchBall(clientX) {
+    if (state.paused) return;
     pickBallVariant();
     resetBall();
-
     const target = targetForTap(clientX);
     const b = state.ball;
     const dx = target.x - b.x;
     const dy = target.y - b.y;
-
-    // V2: faster, more forceful roll. The ball should always have energy behind it.
-    const len = Math.max(1, Math.hypot(dx, dy));
-    const desiredTime = state.forceAssistNextRoll ? rand(1.35, 1.75) : rand(1.55, 2.05);
-    let speed = clamp(len / desiredTime, state.h * 0.42, state.h * 0.72);
-
-    // User tap still gently influences the line, but not enough to make the game twitchy.
-    const tapInfluence = clamp((clientX - (state.lane.x + state.lane.w * 0.5)) / state.lane.w, -0.5, 0.5);
-    const sideNudge = state.forceAssistNextRoll ? 0 : tapInfluence * state.w * 0.055;
-
-    b.vx = (dx / len) * speed + sideNudge;
+    const len = Math.max(0.001, Math.hypot(dx, dy));
+    const time = state.forceAssistNextRoll ? rand(1.20, 1.50) : rand(1.35, 1.75);
+    const speed = clamp(len / time, 0.48, 0.76);
+    const tapX = unprojectX(clientX, 0.78);
+    const nudge = state.forceAssistNextRoll ? 0 : (tapX - 0.5) * 0.055;
+    b.vx = (dx / len) * speed + nudge;
     b.vy = (dy / len) * speed;
-    // Ensure the ball always travels upward toward the pin field with meaningful force.
-    b.vy = Math.min(b.vy, -state.h * 0.42);
-    b.spin = rand(-2.4, 2.4);
+    // Always give forward force toward the pins.
+    b.vy = Math.min(b.vy, -0.48);
+    b.spin = rand(-1.8, 1.8);
     state.rolling = true;
     state.rollStartAt = now();
     state.rollHitThisTime = false;
-    state.lastRollHit = false;
     startRollSound();
   }
 
+  function handleTap(clientX, clientY) {
+    if (state.paused) {
+      resumeGame();
+      return;
+    }
+    unlockAudio();
+    if (!state.started) {
+      state.started = true;
+      launchBall(clientX);
+      return;
+    }
+    if (state.celebrationUntil > now() || state.nextLevelAt > now()) return;
+    if (!state.rolling) launchBall(clientX);
+  }
 
   function update(dt) {
+    if (state.paused) return;
     const t = now();
-    state.tapHintPulse += dt;
-
+    state.tapPulse += dt;
     for (let i = state.sparkles.length - 1; i >= 0; i--) {
       const sp = state.sparkles[i];
-      sp.life -= dt;
-      sp.x += sp.vx * dt;
-      sp.y += sp.vy * dt;
-      sp.rot += sp.vr * dt;
+      sp.life -= dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.rot += sp.vr * dt;
       if (sp.life <= 0) state.sparkles.splice(i, 1);
     }
-
-    if (state.nextLevelAt && t >= state.nextLevelAt) {
-      state.nextLevelAt = 0;
-      newLevel();
-    }
-
+    if (state.nextLevelAt && t >= state.nextLevelAt) { state.nextLevelAt = 0; newLevel(); }
     updateBall(dt);
     updatePins(dt);
-    updatePinCollisions(dt);
+    updatePinCollisions();
     updateRollSound();
 
     if (state.rolling) {
-      const speed = Math.hypot(state.ball.vx, state.ball.vy);
-      const oldEnough = t - state.rollStartAt > 0.95;
-      const tooLong = t - state.rollStartAt > 7.0;
-      const belowLane = state.ball.y < state.lane.y - state.ball.r * 2;
-      const stopped = oldEnough && speed < 24;
-      if (tooLong || belowLane || stopped) {
-        finishRoll();
-      }
+      const spd = Math.hypot(state.ball.vx, state.ball.vy);
+      const inAction = t - state.rollStartAt;
+      const tooLong = inAction > 5.2;
+      const exited = state.ball.y < 0.02;
+      const stopped = inAction > 1.2 && spd < 0.055;
+      if (tooLong || exited || stopped) finishRoll();
     }
 
-    const standing = state.pins.some(p => !p.knocked);
-    const movingPins = state.pins.some(p => p.knocked && Math.hypot(p.vx, p.vy) > 45);
-    if (state.started && !standing && !movingPins && !state.nextLevelAt && state.celebrationUntil < t) {
-      startCelebration();
+    if (state.started && !state.pins.some(p => !p.knocked) && !state.nextLevelAt && state.celebrationUntil < t) {
+      const moving = state.pins.some(p => Math.hypot(p.vx, p.vy) > 0.045);
+      if (!moving || t - Math.max(...state.pins.map(p => p.lastImpactAt || 0)) > 0.55) startCelebration();
     }
   }
 
   function updateBall(dt) {
     const b = state.ball;
     if (!b || !state.rolling) return;
-    const lane = state.lane;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    b.spin += (b.vx * 0.013) * dt;
+    b.spin += b.vx * 8.5 * dt;
 
-    // V2: lower friction and minimum travel force before reaching the active pin field.
-    b.vx *= Math.pow(0.993, dt * 60);
+    // Low friction while traveling toward pins; enough force to reach the far end.
+    b.vx *= Math.pow(0.992, dt * 60);
     b.vy *= Math.pow(0.996, dt * 60);
-    const firstPinZone = lane.y + lane.h * 0.70;
-    if (b.y > firstPinZone && b.vy > -state.h * 0.34) {
-      b.vy = -state.h * 0.34;
-    }
+    if (b.y > 0.46 && b.vy > -0.44) b.vy = -0.44;
 
-    // Side bumper walls: helpful, energetic rebounds, not dead boundaries.
-    const left = lane.x + lane.railW * 0.28 + b.r;
-    const right = lane.x + lane.w - lane.railW * 0.28 - b.r;
+    // Soft bumpers, no gutters.
+    const left = 0.035 + b.r * 0.65;
+    const right = 0.965 - b.r * 0.65;
     if (b.x < left) {
       b.x = left;
-      b.vx = Math.abs(b.vx) * 0.92 + state.w * 0.05;
-      b.vy = Math.min(b.vy * 0.98, -state.h * 0.30);
-      playWallBounce();
-      addSparkles(b.x, b.y, 7, "#ffe36a", 0.22);
+      b.vx = Math.abs(b.vx) * 0.88 + 0.055;
+      b.vy = -Math.max(Math.abs(b.vy) * 0.96, 0.38);
+      playWallBounce(); addSparklesForWorld(b.x, b.y, 5, "#ffe36a", 0.22);
     } else if (b.x > right) {
       b.x = right;
-      b.vx = -Math.abs(b.vx) * 0.92 - state.w * 0.05;
-      b.vy = Math.min(b.vy * 0.98, -state.h * 0.30);
-      playWallBounce();
-      addSparkles(b.x, b.y, 7, "#ffe36a", 0.22);
+      b.vx = -Math.abs(b.vx) * 0.88 - 0.055;
+      b.vy = -Math.max(Math.abs(b.vy) * 0.96, 0.38);
+      playWallBounce(); addSparklesForWorld(b.x, b.y, 5, "#ffe36a", 0.22);
     }
 
-    // Ball-pin collisions. Upright pins have generous hitboxes; fallen pins can be pushed too.
     for (const p of state.pins) {
-      const dx = p.x - b.x;
-      const dy = p.y - b.y;
-      const hitRadius = p.knocked ? p.r * 1.25 : p.r * 1.45;
-      const minD = b.r * 0.82 + hitRadius;
+      const hitR = b.r * 0.80 + p.r * 1.05;
+      const dx = p.x - b.x, dy = p.y - b.y;
       const d = Math.hypot(dx, dy);
-      if (d > 0 && d < minD) {
+      if (d > 0 && d < hitR) {
         const nx = dx / d, ny = dy / d;
-        const push = minD - d;
-        p.x += nx * push * 0.80;
-        p.y += ny * push * 0.80;
-
-        const ballSpeed = Math.hypot(b.vx, b.vy);
-        const impact = Math.max(360, ballSpeed * 0.88);
-        p.vx += nx * impact + rand(-90, 90);
-        p.vy += ny * impact + rand(-70, 70);
-        p.av += rand(-9, 9);
+        const impact = Math.max(0.36, Math.hypot(b.vx, b.vy) * 0.95);
+        p.vx += nx * impact * 0.86 + rand(-0.12, 0.12);
+        p.vy += ny * impact * 0.86 + rand(-0.09, 0.09);
+        p.av += rand(-7, 7);
         knockPin(p, true);
-
-        // Keep the ball powerful after impacts, while letting impact feel visible.
-        b.vx -= nx * impact * 0.08;
-        b.vy -= ny * impact * 0.06;
-        if (b.vy > -state.h * 0.20) b.vy = -state.h * 0.20;
+        b.vx -= nx * impact * 0.12;
+        b.vy -= ny * impact * 0.08;
+        if (b.y > 0.40 && b.vy > -0.34) b.vy = -0.34;
         state.rollHitThisTime = true;
-        state.lastRollHit = true;
         state.forceAssistNextRoll = false;
       }
     }
   }
 
-
   function updatePins(dt) {
-    const lane = state.lane;
-    const minX = lane.x + lane.railW * 0.20;
-    const maxX = lane.x + lane.w - lane.railW * 0.20;
-    const minY = lane.y + 6;
-    const maxY = lane.y + lane.h - 6;
-
     for (const p of state.pins) {
-      p.hitFlash = Math.max(0, p.hitFlash - dt * 3.2);
+      p.hitFlash = Math.max(0, p.hitFlash - dt * 3.0);
+      if (p.knocked && p.falling < 1) p.falling = clamp(p.falling + dt * 5.2, 0, 1);
       if (p.knocked) {
-        // Fast, unmistakable tip-over animation to horizontal.
-        p.falling = clamp(p.falling + dt * 5.2, 0, 1);
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.angle += p.av * dt;
-
-        // Fallen pins keep enough momentum to sweep into neighbors.
-        p.vx *= Math.pow(0.982, dt * 60);
-        p.vy *= Math.pow(0.982, dt * 60);
-        p.av *= Math.pow(0.970, dt * 60);
-
-        const pad = p.r * 1.15;
-        if (p.x < minX + pad) { p.x = minX + pad; p.vx = Math.abs(p.vx) * 0.70; }
-        else if (p.x > maxX - pad) { p.x = maxX - pad; p.vx = -Math.abs(p.vx) * 0.70; }
-        if (p.y < minY + pad) { p.y = minY + pad; p.vy = Math.abs(p.vy) * 0.70; }
-        else if (p.y > maxY - pad) { p.y = maxY - pad; p.vy = -Math.abs(p.vy) * 0.70; }
+        p.vx *= Math.pow(0.955, dt * 60);
+        p.vy *= Math.pow(0.955, dt * 60);
+        p.av *= Math.pow(0.940, dt * 60);
+        if (p.x < 0.045) { p.x = 0.045; p.vx = Math.abs(p.vx) * 0.50; }
+        if (p.x > 0.955) { p.x = 0.955; p.vx = -Math.abs(p.vx) * 0.50; }
+        if (p.y < 0.060) { p.y = 0.060; p.vy = Math.abs(p.vy) * 0.45; }
+        if (p.y > 0.700) { p.y = 0.700; p.vy = -Math.abs(p.vy) * 0.35; }
       } else {
-        // Tiny idle wobble so upright pins feel alive but stable.
-        p.angle += Math.sin(now() * 2.1 + p.x * 0.02) * 0.0007;
+        p.angle += Math.sin(now() * 2.3 + p.x * 23) * 0.0005;
       }
     }
   }
 
-
-  function pinCollisionRadius(p) {
-    // Fallen pins sweep more space, so they can knock over other pins visibly.
-    return p.knocked ? p.r * 2.05 : p.r * 1.18;
-  }
-
-  function updatePinCollisions(dt) {
+  function updatePinCollisions() {
     const pins = state.pins;
     for (let i = 0; i < pins.length; i++) {
       for (let j = i + 1; j < pins.length; j++) {
         const a = pins[i], b = pins[j];
+        const ar = a.knocked ? a.r * 1.45 : a.r * 0.92;
+        const br = b.knocked ? b.r * 1.45 : b.r * 0.92;
         const dx = b.x - a.x, dy = b.y - a.y;
         const d = Math.hypot(dx, dy);
-        const minD = pinCollisionRadius(a) + pinCollisionRadius(b);
+        const minD = ar + br;
         if (d > 0 && d < minD) {
           const nx = dx / d, ny = dy / d;
-          const push = (minD - d) * 0.46;
+          const push = (minD - d) * 0.52;
           a.x -= nx * push; a.y -= ny * push;
           b.x += nx * push; b.y += ny * push;
-
-          const avx = a.vx || 0, avy = a.vy || 0, bvx = b.vx || 0, bvy = b.vy || 0;
-          const relSpeed = Math.hypot(avx - bvx, avy - bvy);
-          const movingKnockedPin = (a.knocked && Math.hypot(avx, avy) > 28) || (b.knocked && Math.hypot(bvx, bvy) > 28);
-          const directImpact = relSpeed > 34;
-
-          if (movingKnockedPin || directImpact) {
-            const impulse = Math.min(430, Math.max(130, relSpeed * 0.72));
-            a.vx -= nx * impulse; a.vy -= ny * impulse;
-            b.vx += nx * impulse; b.vy += ny * impulse;
-            a.av += rand(-4.5, 4.5);
-            b.av += rand(-4.5, 4.5);
-
-            // V2 explicit chain reaction: a fallen/moving pin knocks over upright pins.
-            if (a.knocked && !b.knocked) knockPin(b, false);
-            if (b.knocked && !a.knocked) knockPin(a, false);
-            if (!a.knocked && !b.knocked && directImpact && relSpeed > 90) {
-              knockPin(a, false);
-              knockPin(b, false);
-            }
+          const rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+          const impact = Math.max(0.05, Math.abs(rel));
+          if (impact > 0.05 || a.knocked || b.knocked) {
+            a.vx -= nx * impact * 0.35; a.vy -= ny * impact * 0.35;
+            b.vx += nx * impact * 0.35; b.vy += ny * impact * 0.35;
+            a.av += rand(-2.6, 2.6); b.av += rand(-2.6, 2.6);
+            // V3: downed pins sweep into upright pins and knock them down.
+            if (a.knocked && !b.knocked && Math.hypot(a.vx, a.vy) > 0.018) knockPin(b, false);
+            if (b.knocked && !a.knocked && Math.hypot(b.vx, b.vy) > 0.018) knockPin(a, false);
           }
         }
       }
     }
   }
 
-
   function knockPin(p, fromBall) {
     const t = now();
     if (!p.knocked) {
       p.knocked = true;
       p.falling = 0;
+      p.angle = rand(-0.85, 0.85);
       p.hitFlash = 1;
       p.lastImpactAt = t;
-      // Set an obvious sideways orientation target; drawPin interpolates to horizontal.
-      p.angle += choice([-1, 1]) * rand(0.65, 1.15);
-      // Give every knocked pin sweep force so it can take other pins with it.
-      const speed = Math.hypot(p.vx, p.vy);
-      if (speed < 210) {
-        const a = rand(-Math.PI * 0.92, -Math.PI * 0.08);
-        p.vx += Math.cos(a) * 210;
-        p.vy += Math.sin(a) * 210;
+      if (Math.hypot(p.vx, p.vy) < 0.09) {
+        p.vx += rand(-0.14, 0.14); p.vy += rand(-0.12, 0.18);
       }
       playPinFall(fromBall);
-      addSparkles(p.x, p.y, fromBall ? 12 : 7, p.color, 0.42);
+      addSparklesForWorld(p.x, p.y, fromBall ? 9 : 5, p.color, 0.42);
     } else {
-      p.hitFlash = Math.max(p.hitFlash, 0.48);
+      p.hitFlash = Math.max(p.hitFlash, 0.35);
       p.lastImpactAt = t;
     }
   }
-
 
   function finishRoll() {
     state.rolling = false;
     stopRollSound();
-    const hit = !!state.rollHitThisTime;
-    state.lastRollHit = hit;
-    if (!hit && state.pins.some(p => !p.knocked)) {
-      state.forceAssistNextRoll = true;
-    }
+    if (!state.rollHitThisTime && state.pins.some(p => !p.knocked)) state.forceAssistNextRoll = true;
     resetBall();
   }
-
 
   function startCelebration() {
     const t = now();
     state.celebrationStart = t;
     state.celebrationUntil = t + 2.0;
-    state.nextLevelAt = t + 2.05;
+    state.nextLevelAt = t + 2.08;
     state.rolling = false;
     stopRollSound();
     playMeow();
-    const cx = state.lane.x + state.lane.w * 0.5;
-    const cy = state.lane.y + state.lane.h * 0.38;
-    addSparkles(cx, cy, 44, "#ffe36a", 1.1);
-    addSparkles(cx, cy, 28, "#ff8bd1", 1.0);
+    addSparklesForWorld(0.5, 0.42, 40, "#ffe36a", 1.05);
+    addSparklesForWorld(0.5, 0.42, 26, "#ff8bd1", 1.0);
   }
 
-  function addSparkles(x, y, count, color, life = 0.7) {
+  function addSparklesForWorld(xw, yw, count, color, life = 0.7) {
+    const p = project(xw, yw);
     for (let i = 0; i < count; i++) {
-      const a = rand(0, TAU);
-      const spd = rand(20, 145);
-      state.sparkles.push({
-        x: x + rand(-8, 8),
-        y: y + rand(-8, 8),
-        vx: Math.cos(a) * spd,
-        vy: Math.sin(a) * spd,
-        size: rand(2.5, 7),
-        color,
-        life: rand(life * 0.55, life),
-        maxLife: life,
-        rot: rand(0, TAU),
-        vr: rand(-4, 4)
-      });
+      const a = rand(0, TAU), spd = rand(22, 150);
+      state.sparkles.push({ x: p.x + rand(-8, 8), y: p.y + rand(-8, 8), vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: rand(life * 0.55, life), maxLife: life, size: rand(2.5, 7), color, rot: rand(0, TAU), vr: rand(-4, 4) });
     }
+  }
+
+  function pauseGame() {
+    if (state.paused) return;
+    state.paused = true;
+    state.pauseBeganAt = now();
+    state.wasHiddenPaused = true;
+    if (musicEl) musicEl.pause();
+    stopRollSound();
+  }
+
+  function resumeGame() {
+    if (!state.paused) return;
+    unlockAudio();
+    state.paused = false;
+    state.wasHiddenPaused = false;
+    state.lastT = now();
+    if (state.rolling) startRollSound();
+  }
+
+  function scheduleVisibilityPause() {
+    if (state.pauseTimer) clearTimeout(state.pauseTimer);
+    state.pauseTimer = setTimeout(() => {
+      state.pauseTimer = null;
+      if (document.hidden) pauseGame();
+    }, 500);
+  }
+
+  function cancelVisibilityPause() {
+    if (state.pauseTimer) { clearTimeout(state.pauseTimer); state.pauseTimer = null; }
   }
 
   function roundedRect(c, x, y, w, h, r) {
@@ -646,605 +513,334 @@
   }
 
   function draw() {
-    const w = state.w, h = state.h;
-    ctx.clearRect(0, 0, w, h);
-
+    ctx.clearRect(0, 0, state.w, state.h);
     drawBackground();
-    drawLane();
+    drawAlley();
 
-    // Draw pins sorted by y for a simple depth feel.
-    const sortedPins = [...state.pins].sort((a, b) => a.y - b.y);
-    for (const p of sortedPins) drawPin(p);
+    const objects = [];
+    for (const p of state.pins) objects.push({ type: "pin", obj: p, y: p.y });
+    if (state.ball) objects.push({ type: "ball", obj: state.ball, y: state.ball.y });
+    objects.sort((a, b) => a.y - b.y);
+    for (const o of objects) {
+      if (o.type === "pin") drawPin(o.obj);
+      else drawBall();
+    }
 
-    drawAimingGuides();
-
-    if (state.ball) drawBall();
-
-    drawMascot();
+    drawGuides();
     drawSparkles();
-
-    drawIntroAndStartText();
+    drawIntroStartAndBadges();
     drawCelebration();
-
-    if (w > h) drawPortraitHint();
+    if (state.paused) drawPauseOverlay();
   }
 
   function drawBackground() {
     const g = ctx.createLinearGradient(0, 0, 0, state.h);
-    g.addColorStop(0, "#422176");
-    g.addColorStop(0.45, "#6e4fc4");
-    g.addColorStop(1, "#2b185d");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, state.w, state.h);
-
-    // Small stars outside lane.
+    g.addColorStop(0, "#101240"); g.addColorStop(0.42, "#412487"); g.addColorStop(1, "#180f36");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, state.w, state.h);
     ctx.save();
-    ctx.globalAlpha = 0.35;
-    for (let i = 0; i < 20; i++) {
-      const x = ((i * 73) % Math.max(1, state.w));
-      const y = ((i * 131) % Math.max(1, state.h));
-      drawStar(x, y, 3 + (i % 3), "#fff0a6", 0.5);
+    ctx.globalAlpha = 0.65;
+    drawMoon(state.w * 0.12, state.h * 0.075, Math.min(35, state.w * 0.09));
+    for (let i = 0; i < 30; i++) {
+      const x = (i * 83 + 47) % state.w;
+      const y = (i * 127 + 31) % (state.h * 0.45);
+      drawStar(x, y, 2 + (i % 4), i % 3 ? "#fff2a8" : "#ff9fe4", 0.55);
     }
     ctx.restore();
   }
 
-  function drawLane() {
-    const lane = state.lane;
-    const railW = lane.railW;
-    const radius = clamp(state.w * 0.07, 22, 42);
+  function drawAlley() {
+    const L = state.lane;
+    const topY = L.topY, bottomY = L.bottomY;
+    const topW = L.topW, bottomW = L.bottomW;
+    const railTop = L.railTopW, railBottom = L.railBottomW;
+    const cx = L.cx;
 
-    // Outer bumper board
+    // Back wall / pin deck arch.
     ctx.save();
-    roundedRect(ctx, lane.x - railW * 0.58, lane.y, lane.w + railW * 1.16, lane.h, radius + 8);
-    const railGrad = ctx.createLinearGradient(0, lane.y, 0, lane.y + lane.h);
-    railGrad.addColorStop(0, "#9a65e8");
-    railGrad.addColorStop(0.55, "#7440c9");
-    railGrad.addColorStop(1, "#5b2ba9");
-    ctx.fillStyle = railGrad;
-    ctx.fill();
+    const archW = state.w * 0.86;
+    const archH = state.h * 0.15;
+    roundedRect(ctx, cx - archW / 2, topY - archH * 0.78, archW, archH, 28);
+    const archGrad = ctx.createLinearGradient(0, topY - archH, 0, topY + 40);
+    archGrad.addColorStop(0, "#9259e4"); archGrad.addColorStop(1, "#4f239a");
+    ctx.fillStyle = archGrad; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,208,255,.45)"; ctx.stroke();
+    ctx.fillStyle = "#ffd65b";
+    ctx.font = `900 ${clamp(state.w * 0.105, 32, 50)}px system-ui, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 5; ctx.strokeStyle = "#4a157d";
+    ctx.strokeText("MEOWMOON", cx, topY - archH * 0.40);
+    ctx.fillText("MEOWMOON", cx, topY - archH * 0.40);
+    ctx.font = `900 ${clamp(state.w * 0.060, 20, 30)}px system-ui, sans-serif`;
+    ctx.fillStyle = "#95eaff"; ctx.strokeText("BOWLING", cx, topY - archH * 0.08); ctx.fillText("BOWLING", cx, topY - archH * 0.08);
 
-    // Lane surface
-    roundedRect(ctx, lane.x, lane.y + 10, lane.w, lane.h - 18, radius);
-    const wood = ctx.createLinearGradient(0, lane.y, 0, lane.y + lane.h);
-    wood.addColorStop(0, "#ffd070");
-    wood.addColorStop(0.45, "#f8b84d");
-    wood.addColorStop(1, "#ffd988");
-    ctx.fillStyle = wood;
-    ctx.fill();
-
-    // Wood stripes
-    ctx.globalAlpha = 0.13;
-    ctx.lineWidth = 1;
-    for (let x = lane.x + 18; x < lane.x + lane.w; x += Math.max(18, lane.w / 11)) {
-      ctx.strokeStyle = "#8a4e18";
-      ctx.beginPath();
-      ctx.moveTo(x, lane.y + 18);
-      ctx.lineTo(x + Math.sin(x) * 8, lane.y + lane.h - 18);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    // Inner bumper highlights
-    drawRail(lane.x - railW * 0.53, lane.y + 18, railW * 0.62, lane.h - 38, true);
-    drawRail(lane.x + lane.w - railW * 0.09, lane.y + 18, railW * 0.62, lane.h - 38, false);
-
-    // Side bolts/stars
-    const boltY = [0.12, 0.36, 0.62, 0.86];
-    for (const t of boltY) {
-      drawCircle(lane.x - railW * 0.29, lane.y + lane.h * t, railW * 0.18, "#ffc447", "#d97722");
-      drawCircle(lane.x + lane.w + railW * 0.29, lane.y + lane.h * t, railW * 0.18, "#ffc447", "#d97722");
-    }
-
-    // Top rounded bumper cap
-    ctx.globalAlpha = 0.35;
-    ctx.strokeStyle = "#4d208f";
-    ctx.lineWidth = 3;
-    roundedRect(ctx, lane.x + 3, lane.y + 10, lane.w - 6, lane.h - 18, radius);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+    // Black deck opening behind pins.
+    roundedRect(ctx, cx - topW * 0.66, topY - 7, topW * 1.32, state.h * 0.075, 12);
+    ctx.fillStyle = "#0b0920"; ctx.fill();
     ctx.restore();
-  }
 
-  function drawRail(x, y, w, h, left) {
-    roundedRect(ctx, x, y, w, h, w * 0.45);
-    const g = ctx.createLinearGradient(x, 0, x + w, 0);
-    g.addColorStop(0, left ? "#b582ff" : "#6b39bd");
-    g.addColorStop(0.55, "#8c55dc");
-    g.addColorStop(1, left ? "#6b39bd" : "#b582ff");
-    ctx.fillStyle = g;
-    ctx.fill();
-
+    // Rails as trapezoids.
     ctx.save();
-    ctx.globalAlpha = 0.38;
-    for (let yy = y + 40; yy < y + h - 10; yy += 72) {
-      drawStar(x + w * 0.5, yy, Math.min(8, w * 0.27), "#ffe36a", 0.55);
-    }
-    ctx.restore();
-  }
-
-  function drawCircle(x, y, r, fill, stroke = null) {
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    if (stroke) {
-      ctx.lineWidth = Math.max(1, r * 0.18);
-      ctx.strokeStyle = stroke;
-      ctx.stroke();
-    }
-  }
-
-  function drawAimingGuides() {
-    if (!state.ball || state.rolling || state.celebrationUntil > now()) return;
-    const b = state.ball;
-    const lane = state.lane;
-    ctx.save();
-    ctx.globalAlpha = state.started ? 0.34 : 0.45;
-    ctx.fillStyle = "#fff6cc";
-    const dots = 9;
-    for (let i = 1; i <= dots; i++) {
-      const t = i / (dots + 1);
-      const y = lerp(b.y - b.r * 1.25, lane.y + lane.h * 0.52, t);
-      const r = lerp(4, 2.5, t);
-      drawCircle(b.x, y, r, "#fff6cc");
-    }
-    ctx.globalAlpha = state.started ? 0.20 : 0.30;
-    ctx.fillStyle = "#fff0a6";
-    for (let i = 0; i < 5; i++) {
-      const y = b.y - b.r * 2.1 - i * 18;
-      drawChevron(b.x, y, 18 - i * 1.6);
-    }
-    ctx.restore();
-  }
-
-  function drawChevron(x, y, size) {
+    ctx.moveTo(cx - railTop / 2, topY);
+    ctx.lineTo(cx - topW / 2, topY);
+    ctx.lineTo(cx - bottomW / 2, bottomY);
+    ctx.lineTo(cx - railBottom / 2, bottomY);
+    ctx.closePath();
+    const rg = ctx.createLinearGradient(0, topY, 0, bottomY);
+    rg.addColorStop(0, "#8b50da"); rg.addColorStop(1, "#5d2bad");
+    ctx.fillStyle = rg; ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(x, y - size * 0.6);
-    ctx.lineTo(x - size, y + size * 0.45);
-    ctx.lineTo(x - size * 0.38, y + size * 0.45);
-    ctx.lineTo(x, y - size * 0.15);
-    ctx.lineTo(x + size * 0.38, y + size * 0.45);
-    ctx.lineTo(x + size, y + size * 0.45);
+    ctx.moveTo(cx + topW / 2, topY);
+    ctx.lineTo(cx + railTop / 2, topY);
+    ctx.lineTo(cx + railBottom / 2, bottomY);
+    ctx.lineTo(cx + bottomW / 2, bottomY);
     ctx.closePath();
     ctx.fill();
+
+    // Lane trapezoid.
+    ctx.beginPath();
+    ctx.moveTo(cx - topW / 2, topY);
+    ctx.lineTo(cx + topW / 2, topY);
+    ctx.lineTo(cx + bottomW / 2, bottomY);
+    ctx.lineTo(cx - bottomW / 2, bottomY);
+    ctx.closePath();
+    const wood = ctx.createLinearGradient(0, topY, 0, bottomY);
+    wood.addColorStop(0, "#ffd982"); wood.addColorStop(0.42, "#f4b34d"); wood.addColorStop(1, "#ffe0a0");
+    ctx.fillStyle = wood; ctx.fill();
+
+    // Wood planks converge in perspective.
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#834817";
+    for (let i = 1; i < 11; i++) {
+      const xTop = cx - topW / 2 + topW * i / 11;
+      const xBot = cx - bottomW / 2 + bottomW * i / 11;
+      ctx.beginPath(); ctx.moveTo(xTop, topY); ctx.lineTo(xBot, bottomY); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Side rail lights.
+    for (let yw = 0.12; yw < 0.95; yw += 0.16) {
+      const y = screenY(yw); const lw = laneWidthAt(yw); const rw = railWidthAt(yw);
+      drawStar(cx - (lw / 2 + (rw - lw) * 0.25), y, 7, "#ffe36a", 0.75);
+      drawStar(cx + (lw / 2 + (rw - lw) * 0.25), y, 7, "#ffe36a", 0.75);
+    }
+    ctx.restore();
+  }
+
+  function drawMoon(x, y, r) {
+    ctx.save();
+    ctx.fillStyle = "#ffdf68"; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath(); ctx.arc(x + r * 0.36, y - r * 0.12, r * 0.92, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = "rgba(255,240,160,.4)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGuides() {
+    if (!state.ball || state.rolling || state.celebrationUntil > now() || state.paused) return;
+    const b = state.ball;
+    ctx.save(); ctx.globalAlpha = state.started ? 0.28 : 0.44;
+    for (let i = 1; i <= 8; i++) {
+      const yw = lerp(b.y - 0.05, 0.55, i / 9);
+      const p = project(b.x, yw);
+      drawCircle(p.x, p.y, Math.max(2, 6 * (1 - i / 11)), "#fff5ca");
+    }
+    ctx.restore();
   }
 
   function drawPin(p) {
+    const pr = project(p.x, p.y);
+    const base = clamp(state.w * 0.060 * pr.scale, 20, 54);
     ctx.save();
-    ctx.translate(p.x, p.y);
-    const r = p.r;
-    const fall = p.knocked ? clamp(p.falling, 0, 1) : 0;
-    const visualAngle = p.angle + fall * Math.PI * 0.5;
-    ctx.rotate(visualAngle);
+    ctx.translate(pr.x, pr.y);
+    const fall = p.falling;
+    const rot = p.angle + fall * Math.PI * 0.5;
+    ctx.rotate(rot);
+    ctx.shadowColor = "rgba(40, 20, 10, .35)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = base * 0.25;
 
-    // Larger and clearer v2 pin. Fallen pins are unmistakably horizontal.
-    ctx.shadowColor = "rgba(55, 28, 15, 0.30)";
-    ctx.shadowBlur = 11;
-    ctx.shadowOffsetY = p.knocked ? 3 : 6;
-
-    const bodyH = r * 2.35;
-    const bodyW = r * 1.18;
-    const neckW = r * 0.72;
-    const neckH = r * 0.92;
-    const downSquash = p.knocked ? 0.92 : 1.0;
-
-    // Base/body gradient.
-    const g = ctx.createLinearGradient(-r, -bodyH * 0.45, r, bodyH * 0.55);
-    g.addColorStop(0, lighten(p.color, 0.34));
-    g.addColorStop(0.45, p.color);
-    g.addColorStop(1, shade(p.color, 0.22));
-    ctx.fillStyle = g;
-    ctx.strokeStyle = "rgba(58, 30, 75, 0.36)";
-    ctx.lineWidth = Math.max(2, r * 0.095);
-
-    // Lower belly.
-    ctx.beginPath();
-    ctx.ellipse(0, r * 0.32, bodyW * 0.55, bodyH * 0.45 * downSquash, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-
-    // Neck/head.
-    ctx.beginPath();
-    ctx.ellipse(0, -r * 0.72, neckW * 0.55, neckH * 0.62, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-
-    // Chunky foot/base cap.
-    ctx.beginPath();
-    ctx.ellipse(0, r * 1.20, bodyW * 0.62, r * 0.28, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-
-    ctx.shadowColor = "transparent";
-
-    // White toy-bowling stripe around neck.
-    ctx.strokeStyle = "#fff7ea";
-    ctx.lineWidth = Math.max(3, r * 0.18);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.40, -r * 0.54);
-    ctx.lineTo(r * 0.40, -r * 0.54);
-    ctx.stroke();
-    ctx.lineWidth = Math.max(2, r * 0.10);
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.35, -r * 0.36);
-    ctx.lineTo(r * 0.35, -r * 0.36);
-    ctx.stroke();
-
-    // Gloss highlight.
-    ctx.globalAlpha = 0.34;
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.ellipse(-r * 0.28, r * 0.18, r * 0.14, r * 0.70, -0.12, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // A little visible star/spot so the pin feels toy-like.
-    ctx.save();
-    ctx.translate(r * 0.26, r * 0.48);
-    ctx.rotate(-visualAngle);
-    drawStar(0, 0, r * 0.22, "#fff3b0", 0.86);
-    ctx.restore();
-
-    // Down-state shadow strip makes fallen pins visually distinct.
-    if (p.knocked) {
-      ctx.globalAlpha = 0.23;
-      ctx.fillStyle = "#2d184f";
-      ctx.beginPath();
-      ctx.ellipse(0, r * 1.42, r * 0.95, r * 0.12, 0, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 1;
+    if (fall < 0.55) {
+      // Upright pin, very large and readable.
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = "rgba(50,20,60,.28)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(0, base * 0.10, base * 0.46, base * 0.93, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, -base * 0.72, base * 0.34, base * 0.38, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "#fff9ee"; ctx.lineWidth = Math.max(3, base * 0.11);
+      ctx.beginPath(); ctx.moveTo(-base * 0.34, -base * 0.52); ctx.lineTo(base * 0.34, -base * 0.52); ctx.stroke();
+      ctx.globalAlpha = 0.32; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(-base * 0.18, -base * 0.08, base * 0.12, base * 0.58, -0.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    } else {
+      // Downed pin is unmistakably horizontal.
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = "rgba(50,20,60,.32)"; ctx.lineWidth = 1.5;
+      roundedRect(ctx, -base * 0.95, -base * 0.28, base * 1.85, base * 0.56, base * 0.26); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(base * 0.88, 0, base * 0.33, base * 0.34, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "#fff9ee"; ctx.lineWidth = Math.max(3, base * 0.10);
+      ctx.beginPath(); ctx.moveTo(base * 0.40, -base * 0.26); ctx.lineTo(base * 0.40, base * 0.26); ctx.stroke();
     }
-
     if (p.hitFlash > 0) {
-      ctx.globalAlpha = p.hitFlash * 0.36;
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 0.95, r * 1.45, 0, 0, TAU);
-      ctx.fill();
+      ctx.globalAlpha = p.hitFlash * 0.35; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(0, 0, base * 0.75, base, 0, 0, TAU); ctx.fill();
     }
-
     ctx.restore();
   }
-
 
   function drawBall() {
     const b = state.ball;
-    ctx.save();
-    ctx.translate(b.x, b.y);
-    ctx.rotate(b.spin);
-
-    // Start ring
-    if (!state.rolling) {
-      ctx.save();
-      ctx.rotate(-b.spin);
-      ctx.globalAlpha = 0.48 + Math.sin(state.tapHintPulse * 3) * 0.08;
-      ctx.strokeStyle = "#fff6cc";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, b.r * 1.36, b.r * 1.16, 0, 0, TAU);
-      ctx.stroke();
-      ctx.restore();
+    const pr = project(b.x, b.y);
+    const r = clamp(state.w * 0.085 * pr.scale, 34, 98);
+    ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(b.spin);
+    if (!state.rolling && !state.paused) {
+      ctx.save(); ctx.rotate(-b.spin); ctx.globalAlpha = 0.42 + Math.sin(state.tapPulse * 3) * 0.08;
+      ctx.strokeStyle = "#fff6cf"; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(0, r * 0.08, r * 1.24, r * 0.75, 0, 0, TAU); ctx.stroke(); ctx.restore();
     }
-
-    if (state.ballCategory === "cat") drawCatBall(b.r, state.ballVariant);
-    else if (state.ballCategory === "toy") drawToyBall(b.r, state.ballVariant);
-    else drawYarnBall(b.r, state.ballVariant);
-
+    if (state.ballCategory === "cat") drawTuxedoCatBall(r); else drawRainbowYarnBall(r);
     ctx.restore();
   }
 
-  function drawCatBall(r, v) {
-    // ears
-    ctx.fillStyle = v.base;
-    ctx.strokeStyle = "rgba(35, 20, 60, 0.25)";
-    ctx.lineWidth = 2;
+  function drawTuxedoCatBall(r) {
+    // Cat-faced option 2: tuxedo cat.
+    ctx.fillStyle = "#101018";
+    ctx.beginPath(); ctx.moveTo(-r * .70, -r * .50); ctx.lineTo(-r * .42, -r * 1.05); ctx.lineTo(-r * .14, -r * .54); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r * .70, -r * .50); ctx.lineTo(r * .42, -r * 1.05); ctx.lineTo(r * .14, -r * .54); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ff93b5";
+    ctx.beginPath(); ctx.moveTo(-r * .50, -r * .60); ctx.lineTo(-r * .40, -r * .84); ctx.lineTo(-r * .28, -r * .58); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r * .50, -r * .60); ctx.lineTo(r * .40, -r * .84); ctx.lineTo(r * .28, -r * .58); ctx.closePath(); ctx.fill();
+    const g = ctx.createRadialGradient(-r * .28, -r * .34, r * .16, 0, 0, r);
+    g.addColorStop(0, "#34343f"); g.addColorStop(1, "#050509");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.lineWidth = 2; ctx.stroke();
+    // White tuxedo face patch.
+    ctx.fillStyle = "#fff8ec";
     ctx.beginPath();
-    ctx.moveTo(-r * 0.72, -r * 0.55);
-    ctx.lineTo(-r * 0.38, -r * 1.08);
-    ctx.lineTo(-r * 0.12, -r * 0.52);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.72, -r * 0.55);
-    ctx.lineTo(r * 0.38, -r * 1.08);
-    ctx.lineTo(r * 0.12, -r * 0.52);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    ctx.fillStyle = v.ear;
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.53, -r * 0.66);
-    ctx.lineTo(-r * 0.39, -r * 0.88);
-    ctx.lineTo(-r * 0.28, -r * 0.62);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.53, -r * 0.66);
-    ctx.lineTo(r * 0.39, -r * 0.88);
-    ctx.lineTo(r * 0.28, -r * 0.62);
-    ctx.closePath(); ctx.fill();
-
-    const g = ctx.createRadialGradient(-r * 0.22, -r * 0.25, r * 0.2, 0, 0, r);
-    g.addColorStop(0, lighten(v.base, 0.22));
-    g.addColorStop(1, v.base);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
+    ctx.moveTo(-r * .56, -r * .18);
+    ctx.quadraticCurveTo(-r * .32, -r * .42, 0, -r * .28);
+    ctx.quadraticCurveTo(r * .32, -r * .42, r * .56, -r * .18);
+    ctx.quadraticCurveTo(r * .42, r * .62, 0, r * .78);
+    ctx.quadraticCurveTo(-r * .42, r * .62, -r * .56, -r * .18);
     ctx.fill();
-    ctx.strokeStyle = "rgba(35,20,60,0.25)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Patch
-    ctx.fillStyle = v.patch;
-    ctx.globalAlpha = 0.45;
-    ctx.beginPath();
-    ctx.arc(-r * 0.35, -r * 0.42, r * 0.35, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
     // Finger holes
-    ctx.fillStyle = "rgba(31,24,52,0.55)";
-    drawCircle(-r * 0.22, -r * 0.58, r * 0.13, "rgba(31,24,52,0.55)");
-    drawCircle(r * 0.08, -r * 0.66, r * 0.12, "rgba(31,24,52,0.55)");
-    drawCircle(r * 0.25, -r * 0.45, r * 0.12, "rgba(31,24,52,0.55)");
-
-    drawBallFace(r, v.face || "#27213b");
-  }
-
-  function drawToyBall(r, v) {
-    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.45, r * 0.15, 0, 0, r);
-    g.addColorStop(0, lighten(v.base, 0.35));
-    g.addColorStop(1, v.base);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(35,20,60,0.25)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.save();
-    ctx.rotate(-0.3);
-    if (v.deco === "stars") {
-      drawStar(-r * 0.42, -r * 0.14, r * 0.22, v.accent, 1);
-      drawStar(r * 0.28, r * 0.22, r * 0.18, v.accent, 1);
-      drawStar(r * 0.37, -r * 0.34, r * 0.13, v.accent, 1);
-    } else if (v.deco === "paw") {
-      drawPaw(-r * 0.32, -r * 0.10, r * 0.2, v.accent);
-      drawPaw(r * 0.25, r * 0.25, r * 0.16, v.accent);
-    } else {
-      for (let i = 0; i < 8; i++) {
-        drawCircle(Math.cos(i * TAU / 8) * r * 0.55, Math.sin(i * TAU / 8) * r * 0.35, r * 0.07, v.accent);
-      }
+    drawCircle(-r * .18, -r * .62, r * .14, "rgba(0,0,0,.72)");
+    drawCircle(r * .16, -r * .62, r * .14, "rgba(0,0,0,.72)");
+    drawCircle(0, -r * .36, r * .13, "rgba(0,0,0,.72)");
+    // Face
+    drawCircle(-r * .30, -r * .06, r * .12, "#1c1523"); drawCircle(r * .30, -r * .06, r * .12, "#1c1523");
+    drawCircle(-r * .34, -r * .11, r * .035, "#fff"); drawCircle(r * .26, -r * .11, r * .035, "#fff");
+    ctx.fillStyle = "#ff6f9b"; ctx.beginPath(); ctx.arc(0, r * .14, r * .07, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#251729"; ctx.lineWidth = Math.max(2, r * .035); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-r * .12, r * .28); ctx.quadraticCurveTo(0, r * .38, r * .12, r * .28); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(side * r * .18, r * .12); ctx.lineTo(side * r * .62, r * .03); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(side * r * .19, r * .22); ctx.lineTo(side * r * .60, r * .25); ctx.stroke();
     }
-    ctx.restore();
-
-    drawCircle(-r * 0.18, -r * 0.58, r * 0.13, "rgba(31,24,52,0.65)");
-    drawCircle(r * 0.13, -r * 0.60, r * 0.12, "rgba(31,24,52,0.65)");
-    drawCircle(r * 0.02, -r * 0.34, r * 0.12, "rgba(31,24,52,0.65)");
+    ctx.globalAlpha = 0.18; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(-r * .28, -r * .36, r * .18, r * .48, -.55, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
   }
 
-  function drawYarnBall(r, v) {
+  function drawRainbowYarnBall(r) {
+    // Yarn ball option 3: rainbow yarn, dense overlapping strands.
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
+    const grad = ctx.createRadialGradient(-r * .35, -r * .35, r * .12, 0, 0, r);
+    grad.addColorStop(0, "#43d6ff"); grad.addColorStop(.18, "#2ba8e8"); grad.addColorStop(.36, "#42c76a"); grad.addColorStop(.54, "#ffd23b"); grad.addColorStop(.72, "#ff7f29"); grad.addColorStop(1, "#d327a6");
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
     ctx.clip();
-
-    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.38, r * 0.10, 0, 0, r);
-    g.addColorStop(0, lighten(v.base, 0.38));
-    g.addColorStop(0.62, v.base);
-    g.addColorStop(1, shade(v.base, 0.24));
-    ctx.fillStyle = g;
-    ctx.fillRect(-r, -r, r * 2, r * 2);
-
-    // Dense overlapping yarn strands, closer to the sample image and less like simple lines.
+    const colors = ["#ff3da8", "#7e4df2", "#1ea5ef", "#21c66b", "#ffd23b", "#ff7f29", "#e92962"];
     ctx.lineCap = "round";
-    const colors = [v.accent, lighten(v.base, 0.28), shade(v.base, 0.16), "rgba(255,255,255,0.52)"];
-    for (let pass = 0; pass < 4; pass++) {
-      ctx.strokeStyle = colors[pass];
-      ctx.globalAlpha = pass === 3 ? 0.55 : 0.82;
-      ctx.lineWidth = Math.max(2.2, r * (pass === 0 ? 0.105 : 0.065));
-      const rot = [-0.75, 0.38, 1.12, -1.38][pass];
-      ctx.save();
-      ctx.rotate(rot);
-      for (let i = -7; i <= 7; i++) {
-        const yy = i * r * 0.15;
-        ctx.beginPath();
-        ctx.moveTo(-r * 1.25, yy + Math.sin(i) * r * 0.05);
-        ctx.bezierCurveTo(-r * 0.55, yy - r * 0.23, r * 0.42, yy + r * 0.23, r * 1.25, yy - Math.cos(i) * r * 0.05);
-        ctx.stroke();
-      }
+    for (let k = 0; k < 34; k++) {
+      ctx.save(); ctx.rotate((k / 34) * Math.PI + (k % 5) * 0.12);
+      ctx.strokeStyle = colors[k % colors.length];
+      ctx.lineWidth = Math.max(3.2, r * rand(0.055, 0.085));
+      ctx.globalAlpha = 0.85;
+      const yy = rand(-r * .75, r * .75);
+      ctx.beginPath(); ctx.ellipse(0, yy, r * rand(.82, 1.14), r * rand(.13, .25), rand(-0.1, 0.1), 0, TAU); ctx.stroke();
       ctx.restore();
     }
-
-    // A few thick wrap bands crossing the front.
-    ctx.globalAlpha = 0.95;
-    ctx.strokeStyle = lighten(v.base, 0.18);
-    ctx.lineWidth = Math.max(3, r * 0.12);
-    for (const rot of [-0.28, 0.64, -1.08]) {
-      ctx.save();
-      ctx.rotate(rot);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 0.96, r * 0.34, 0, 0, TAU);
-      ctx.stroke();
-      ctx.restore();
+    // Fine fibers.
+    ctx.globalAlpha = 0.22; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+    for (let i = 0; i < 52; i++) {
+      const a = rand(0, TAU); const rr = rand(0, r * .95);
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); ctx.lineTo(Math.cos(a + .4) * (rr + rand(4, 15)), Math.sin(a + .4) * (rr + rand(4, 15))); ctx.stroke();
     }
-
     ctx.restore();
-
-    ctx.strokeStyle = "rgba(35,20,60,0.28)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.stroke();
-
-    drawBallFace(r, v.face);
+    ctx.strokeStyle = "rgba(25,10,35,.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+    drawCircle(-r * .22, -r * .48, r * .13, "#05020a");
+    drawCircle(r * .18, -r * .42, r * .13, "#05020a");
+    drawCircle(-r * .02, -r * .16, r * .14, "#05020a");
   }
 
-
-  function drawBallFace(r, color) {
-    ctx.fillStyle = color;
-    drawCircle(-r * 0.33, -r * 0.04, r * 0.105, color);
-    drawCircle(r * 0.33, -r * 0.04, r * 0.105, color);
-    ctx.fillStyle = "#ff7ca8";
-    ctx.beginPath();
-    ctx.arc(0, r * 0.14, r * 0.075, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1.5, r * 0.045);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.12, r * 0.28);
-    ctx.quadraticCurveTo(0, r * 0.40, r * 0.12, r * 0.28);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.52, r * 0.14);
-    ctx.lineTo(-r * 0.26, r * 0.19);
-    ctx.moveTo(r * 0.52, r * 0.14);
-    ctx.lineTo(r * 0.26, r * 0.19);
-    ctx.stroke();
+  function drawIntroStartAndBadges() {
+    const t = now();
+    if (!state.started) {
+      drawBigText("Tap to Play!", state.w * .5, state.h * .45, clamp(state.w * .12, 38, 60));
+      drawLevelBadge(`${state.currentLevelPins} Pin Level!`, state.w * .5, state.h * .53, 1);
+    } else if (t < state.introUntil) {
+      const alpha = clamp((state.introUntil - t) / (state.introUntil - state.introStart), 0, 1);
+      drawLevelBadge(`${state.currentLevelPins} Pin Level!`, state.w * .5, state.h * .25 - (1 - alpha) * 18, alpha);
+    }
   }
 
-  function drawMascot() {
-    const lane = state.lane;
-    const s = clamp(state.w / 390, 0.82, 1.25);
-    const size = clamp(state.w * 0.18, 58, 84);
-    const x = lane.x + size * 0.52;
-    const y = lane.y + lane.h - size * 0.58;
+  function drawCelebration() {
+    const t = now(); if (t > state.celebrationUntil) return;
+    const progress = clamp((t - state.celebrationStart) / 2, 0, 1);
+    const alpha = progress < .16 ? progress / .16 : progress > .84 ? (1 - progress) / .16 : 1;
+    ctx.save(); ctx.globalAlpha = alpha;
+    drawBigText("Meow!", state.w * .5, state.h * .41, clamp(state.w * .18, 60, 92));
+    drawPauseMascot(state.w * .72, state.h * .54, clamp(state.w * .0016, .58, .78), true);
+    ctx.restore();
+  }
+
+  function drawPauseOverlay() {
     ctx.save();
-    ctx.translate(x, y);
+    ctx.fillStyle = "rgba(12, 8, 31, .58)"; ctx.fillRect(0, 0, state.w, state.h);
+    const boxW = state.w * .86;
+    const boxH = Math.min(state.h * .36, 270);
+    const x = state.w * .5 - boxW / 2;
+    const y = state.h * .27;
+    roundedRect(ctx, x, y, boxW, boxH, 22);
+    ctx.fillStyle = "rgba(80, 43, 150, .92)"; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255, 236, 165, .80)"; ctx.stroke();
+    ctx.fillStyle = "#fff8ff";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `900 ${clamp(state.w * .052, 18, 25)}px system-ui, sans-serif`;
+    wrapText("The game is paused. Meowmoon wants to play with you again soon", state.w * .5, y + boxH * .30, boxW * .78, clamp(state.w * .075, 28, 38));
+    drawPauseMascot(state.w * .5, y + boxH * .78, clamp(state.w * .0020, .65, .92), false);
+    ctx.restore();
+  }
 
-    // Simple full-body cat mascot, bubble-shooter-like.
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(80, 37, 38, 0.25)";
-    ctx.fillStyle = "#f6a13d";
-
+  function drawPauseMascot(x, y, scale, mini) {
+    const s = 92 * scale;
+    ctx.save(); ctx.translate(x, y);
     // Tail
-    ctx.save();
-    ctx.rotate(-0.55);
-    ctx.beginPath();
-    ctx.ellipse(-size * 0.55, size * 0.13, size * 0.18, size * 0.42, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = "rgba(166, 85, 28, 0.6)";
-    ctx.lineWidth = 2;
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.68, size * 0.08 + i * 7);
-      ctx.lineTo(-size * 0.44, size * 0.02 + i * 7);
-      ctx.stroke();
-    }
-    ctx.restore();
-
+    ctx.fillStyle = "#f6a13d"; ctx.strokeStyle = "rgba(80,37,38,.28)"; ctx.lineWidth = 2;
+    ctx.save(); ctx.rotate(-0.75); ctx.beginPath(); ctx.ellipse(-s*.48, s*.16, s*.18, s*.47, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore();
     // Body
-    ctx.fillStyle = "#f6a13d";
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.28, size * 0.34, size * 0.42, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#fff2d4";
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.34, size * 0.19, size * 0.28, 0, 0, TAU);
-    ctx.fill();
-
+    ctx.beginPath(); ctx.ellipse(0, s*.24, s*.33, s*.42, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#fff2d4"; ctx.beginPath(); ctx.ellipse(0, s*.28, s*.18, s*.26, 0, 0, TAU); ctx.fill();
     // Head
-    ctx.fillStyle = "#f6a13d";
-    ctx.beginPath();
-    ctx.arc(0, -size * 0.17, size * 0.39, 0, TAU);
-    ctx.fill(); ctx.stroke();
-
+    ctx.fillStyle = "#f6a13d"; ctx.beginPath(); ctx.arc(0, -s*.24, s*.38, 0, TAU); ctx.fill(); ctx.stroke();
     // Ears
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.28, -size * 0.43);
-    ctx.lineTo(-size * 0.16, -size * 0.79);
-    ctx.lineTo(size * 0.00, -size * 0.44);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(size * 0.28, -size * 0.43);
-    ctx.lineTo(size * 0.16, -size * 0.79);
-    ctx.lineTo(size * 0.00, -size * 0.44);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#ffc0ca";
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.20, -size * 0.48);
-    ctx.lineTo(-size * 0.15, -size * 0.67);
-    ctx.lineTo(-size * 0.06, -size * 0.46);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(size * 0.20, -size * 0.48);
-    ctx.lineTo(size * 0.15, -size * 0.67);
-    ctx.lineTo(size * 0.06, -size * 0.46);
-    ctx.closePath(); ctx.fill();
-
-    // Face patch
-    ctx.fillStyle = "#fff2d4";
-    ctx.beginPath();
-    ctx.ellipse(-size * 0.08, -size * 0.09, size * 0.22, size * 0.18, 0, 0, TAU);
-    ctx.fill();
-
-    // Stripes
-    ctx.strokeStyle = "rgba(168, 88, 28, 0.75)";
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.18 + i * size * 0.09, -size * 0.48);
-      ctx.lineTo(-size * 0.12 + i * size * 0.06, -size * 0.34);
-      ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s*.27, -s*.48); ctx.lineTo(-s*.13, -s*.82); ctx.lineTo(s*.01, -s*.50); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*.27, -s*.48); ctx.lineTo(s*.13, -s*.82); ctx.lineTo(-s*.01, -s*.50); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffc1cf"; ctx.beginPath(); ctx.moveTo(-s*.19, -s*.52); ctx.lineTo(-s*.13, -s*.70); ctx.lineTo(-s*.05, -s*.52); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s*.19, -s*.52); ctx.lineTo(s*.13, -s*.70); ctx.lineTo(s*.05, -s*.52); ctx.closePath(); ctx.fill();
+    // Face
+    ctx.fillStyle = "#fff2d4"; ctx.beginPath(); ctx.ellipse(-s*.04, -s*.18, s*.24, s*.18, 0, 0, TAU); ctx.fill();
+    drawCircle(-s*.12, -s*.28, s*.04, "#2a2141"); drawCircle(s*.12, -s*.28, s*.04, "#2a2141");
+    ctx.fillStyle = "#ff6e96"; ctx.beginPath(); ctx.arc(0, -s*.18, s*.035, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2a2141"; ctx.lineWidth = Math.max(2, s*.028); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-s*.08, -s*.07); ctx.quadraticCurveTo(0, -s*.01, s*.08, -s*.07); ctx.stroke();
+    // Both paws held up.
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(side * s*.34, -s*.08); ctx.rotate(side * .34);
+      ctx.fillStyle = "#f6a13d"; ctx.beginPath(); ctx.ellipse(0, 0, s*.105, s*.20, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      drawPaw(0, -s*.02, s*.07, "#ffc1cf"); ctx.restore();
     }
-
-    // Eyes and face
-    ctx.strokeStyle = "#30213d";
-    ctx.fillStyle = "#2e233d";
-    drawCircle(-size * 0.13, -size * 0.18, size * 0.035, "#2e233d");
-    // wink
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(size * 0.09, -size * 0.20);
-    ctx.quadraticCurveTo(size * 0.16, -size * 0.15, size * 0.23, -size * 0.20);
-    ctx.stroke();
-    ctx.fillStyle = "#ff6d94";
-    ctx.beginPath();
-    ctx.arc(0, -size * 0.08, size * 0.035, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = "#2e233d";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.06, size * 0.01);
-    ctx.quadraticCurveTo(0, size * 0.07, size * 0.06, size * 0.01);
-    ctx.stroke();
-
-    // Raised paw
-    ctx.save();
-    ctx.translate(size * 0.34, -size * 0.10);
-    ctx.rotate(-0.35 + Math.sin(now() * 3) * 0.05);
-    ctx.fillStyle = "#f6a13d";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, size * 0.10, size * 0.17, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-    drawPaw(0, -size * 0.01, size * 0.07, "#ffc0ca");
+    // feet
+    ctx.fillStyle = "#f6a13d"; ctx.beginPath(); ctx.ellipse(-s*.16, s*.66, s*.12, s*.065, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(s*.16, s*.66, s*.12, s*.065, 0, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.restore();
-
-    // Other paw and feet
-    ctx.fillStyle = "#f6a13d";
-    ctx.beginPath();
-    ctx.ellipse(-size * 0.24, size * 0.20, size * 0.08, size * 0.16, -0.4, 0, TAU);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(-size * 0.16, size * 0.72, size * 0.13, size * 0.07, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(size * 0.16, size * 0.72, size * 0.13, size * 0.07, 0, 0, TAU);
-    ctx.fill(); ctx.stroke();
-
-    // Collar tag
-    drawCircle(0, size * 0.10, size * 0.075, "#ffd24d", "#c47b22");
-    drawPaw(0, size * 0.10, size * 0.04, "#a06620");
-
-    ctx.restore();
-  }
-
-  function drawPaw(x, y, r, color) {
-    ctx.fillStyle = color;
-    drawCircle(x, y + r * 0.25, r * 0.55, color);
-    drawCircle(x - r * 0.48, y - r * 0.28, r * 0.28, color);
-    drawCircle(x, y - r * 0.44, r * 0.30, color);
-    drawCircle(x + r * 0.48, y - r * 0.28, r * 0.28, color);
   }
 
   function drawSparkles() {
@@ -1257,198 +853,97 @@
     ctx.restore();
   }
 
-  function drawStar(x, y, r, color, alpha = 1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((x + y) * 0.01 + now() * 0.4);
-    ctx.globalAlpha *= alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rr = i % 2 === 0 ? r : r * 0.45;
-      const a = -Math.PI / 2 + i * Math.PI / 5;
-      const px = Math.cos(a) * rr;
-      const py = Math.sin(a) * rr;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawIntroAndStartText() {
-    const t = now();
-    const lane = state.lane;
-
-    if (!state.started) {
-      drawTextBadge("Tap to Play!", lane.x + lane.w * 0.5, lane.y + lane.h * 0.34, clamp(state.w * 0.115, 38, 58), true);
-      drawLevelBadge(`${state.currentLevelPins} Pin Level!`, lane.x + lane.w * 0.5, lane.y + lane.h * 0.43, 1);
-      return;
-    }
-
-    if (t < state.introUntil) {
-      const life = (state.introUntil - t) / (state.introUntil - state.introStart);
-      const y = lane.y + lane.h * 0.20 - (1 - life) * 18;
-      drawLevelBadge(`${state.currentLevelPins} Pin Level!`, lane.x + lane.w * 0.5, y, clamp(life * 1.15, 0, 1));
-    }
-  }
-
-  function drawTextBadge(text, x, y, size, big = false) {
+  function drawBigText(text, x, y, size) {
     ctx.save();
     ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = Math.max(7, size * 0.18);
-    ctx.strokeStyle = "#5f2baa";
-    ctx.strokeText(text, x, y);
-    ctx.lineWidth = Math.max(3, size * 0.07);
-    ctx.strokeStyle = "#f9b5ff";
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = "#fff8ff";
-    ctx.fillText(text, x, y);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(7, size*.18); ctx.strokeStyle = "#5b23a7"; ctx.strokeText(text, x, y);
+    ctx.lineWidth = Math.max(3, size*.07); ctx.strokeStyle = "#ffb7ff"; ctx.strokeText(text, x, y);
+    ctx.fillStyle = "#fff8ff"; ctx.fillText(text, x, y);
     ctx.restore();
   }
 
-  function drawLevelBadge(text, x, y, alpha = 1) {
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    const s = laneScale();
-    const w = clamp(state.w * 0.58, 205, 300);
-    const h = clamp(40 * s, 36, 50);
-    roundedRect(ctx, x - w / 2, y - h / 2, w, h, h * 0.32);
-    ctx.fillStyle = "#7d48d2";
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#51219a";
-    ctx.stroke();
-    ctx.setLineDash([6, 6]);
-    ctx.globalAlpha = alpha * 0.45;
-    ctx.strokeStyle = "#fff6cc";
-    roundedRect(ctx, x - w / 2 + 7, y - h / 2 + 7, w - 14, h - 14, h * 0.23);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = alpha;
-    drawStar(x - w * 0.40, y, h * 0.22, "#ffe36a", 1);
-    drawStar(x + w * 0.40, y, h * 0.22, "#ffe36a", 1);
-
-    ctx.font = `900 ${clamp(24 * s, 20, 31)}px system-ui, -apple-system, Segoe UI, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = "#52219b";
-    ctx.strokeText(text, x, y + 1);
-    ctx.fillStyle = "#fff8ff";
-    ctx.fillText(text, x, y + 1);
+  function drawLevelBadge(text, x, y, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    const w = clamp(state.w*.58, 205, 305); const h = clamp(state.w*.115, 38, 50);
+    roundedRect(ctx, x - w/2, y - h/2, w, h, h*.32); ctx.fillStyle = "#7746cf"; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "#fff0a6"; ctx.stroke();
+    drawStar(x - w*.41, y, h*.22, "#ffe36a", 1); drawStar(x + w*.41, y, h*.22, "#ffe36a", 1);
+    ctx.font = `900 ${clamp(state.w*.062, 22, 31)}px system-ui, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = 5; ctx.strokeStyle = "#4b1c91"; ctx.strokeText(text, x, y + 1); ctx.fillStyle = "#fff8ff"; ctx.fillText(text, x, y + 1);
     ctx.restore();
   }
 
-  function drawCelebration() {
-    const t = now();
-    if (t > state.celebrationUntil) return;
-    const lane = state.lane;
-    const progress = clamp((t - state.celebrationStart) / 2.0, 0, 1);
-    const alpha = progress < 0.18 ? progress / 0.18 : progress > 0.82 ? (1 - progress) / 0.18 : 1;
-    const cx = lane.x + lane.w * 0.5;
-    const cy = lane.y + lane.h * 0.38;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    drawTextBadge("Meow!", cx, cy, clamp(state.w * 0.17, 54, 82), true);
-
-    // Quick mascot pop beside the word.
-    ctx.save();
-    const pop = Math.sin(clamp(progress / 0.22, 0, 1) * Math.PI);
-    ctx.translate(cx + state.w * 0.22, cy + state.h * 0.11 - pop * 16);
-    ctx.scale(0.58, 0.58);
-    // mini cat head only here so it doesn't block too much, while main mascot remains full-body
-    drawCircle(0, 0, 42, "#f6a13d", "rgba(80,37,38,0.35)");
-    ctx.fillStyle = "#f6a13d";
-    ctx.beginPath(); ctx.moveTo(-28,-22); ctx.lineTo(-16,-54); ctx.lineTo(-3,-24); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(28,-22); ctx.lineTo(16,-54); ctx.lineTo(3,-24); ctx.closePath(); ctx.fill();
-    drawCircle(-14, -4, 4.5, "#30213d");
-    ctx.strokeStyle = "#30213d"; ctx.lineWidth = 4; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(10, -5); ctx.quadraticCurveTo(18, 1, 26, -5); ctx.stroke();
-    ctx.fillStyle = "#ff7ca8"; ctx.beginPath(); ctx.arc(0, 8, 4, 0, TAU); ctx.fill();
-    ctx.restore();
-
-    ctx.restore();
+  function wrapText(text, x, y, maxWidth, lineHeight) {
+    const words = text.split(" "); let line = ""; let lines = [];
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; } else line = test;
+    }
+    if (line) lines.push(line);
+    const startY = y - (lines.length - 1) * lineHeight / 2;
+    lines.forEach((ln, i) => ctx.fillText(ln, x, startY + i * lineHeight));
   }
 
-  function drawPortraitHint() {
-    ctx.save();
-    ctx.globalAlpha = 0.86;
-    roundedRect(ctx, state.w * 0.18, state.h * 0.40, state.w * 0.64, state.h * 0.20, 18);
-    ctx.fillStyle = "#32185e";
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 20px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Portrait works best", state.w * 0.5, state.h * 0.48);
-    ctx.font = "600 15px system-ui, sans-serif";
-    ctx.fillText("Please rotate back", state.w * 0.5, state.h * 0.53);
-    ctx.restore();
+  function drawCircle(x, y, r, fill, stroke = null) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = Math.max(1, r*.15); ctx.stroke(); }
   }
 
-  function lighten(hex, amount) {
-    const c = hex.replace("#", "");
-    const n = parseInt(c, 16);
-    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-    r = Math.round(lerp(r, 255, amount));
-    g = Math.round(lerp(g, 255, amount));
-    b = Math.round(lerp(b, 255, amount));
-    return `rgb(${r},${g},${b})`;
+  function drawPaw(x, y, r, color) {
+    ctx.fillStyle = color;
+    drawCircle(x, y + r*.24, r*.50, color);
+    drawCircle(x - r*.47, y - r*.26, r*.25, color);
+    drawCircle(x, y - r*.40, r*.27, color);
+    drawCircle(x + r*.47, y - r*.26, r*.25, color);
   }
 
-  function shade(hex, amount) {
-    const c = hex.replace("#", "");
-    const n = parseInt(c, 16);
-    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-    r = Math.round(lerp(r, 0, amount));
-    g = Math.round(lerp(g, 0, amount));
-    b = Math.round(lerp(b, 0, amount));
-    return `rgb(${r},${g},${b})`;
+  function drawStar(x, y, r, color, alpha = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate((x+y)*.01 + now()*.35); ctx.globalAlpha *= alpha; ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 === 0 ? r : r*.46;
+      const a = -Math.PI/2 + i*Math.PI/5;
+      const px = Math.cos(a)*rr, py = Math.sin(a)*rr;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
   }
 
   function loop() {
     const t = now();
-    let dt = clamp(t - state.lastT, 0, 1 / 20);
+    const dt = clamp(t - state.lastT, 0, 1/20);
     state.lastT = t;
     update(dt);
     draw();
     requestAnimationFrame(loop);
   }
 
-  function onPointerDown(e) {
+  function pointerHandler(e) {
     e.preventDefault();
     const p = e.changedTouches ? e.changedTouches[0] : e;
-    handleStartOrRoll(p.clientX, p.clientY);
+    handleTap(p.clientX, p.clientY);
   }
 
   window.addEventListener("resize", setupCanvas, { passive: true });
   window.addEventListener("orientationchange", () => setTimeout(setupCanvas, 120), { passive: true });
-  canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
-  canvas.addEventListener("touchstart", onPointerDown, { passive: false });
-
-  window.addEventListener("keydown", (e) => {
+  canvas.addEventListener("pointerdown", pointerHandler, { passive: false });
+  canvas.addEventListener("touchstart", pointerHandler, { passive: false });
+  window.addEventListener("keydown", e => {
     if (e.code === "Space" || e.code === "Enter") {
       e.preventDefault();
-      handleStartOrRoll(state.lane.x + state.lane.w * 0.5, state.lane.y + state.lane.h * 0.35);
+      if (state.paused) resumeGame();
+      else handleTap(state.w * .5, state.h * .42);
     }
   });
 
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      if (musicEl) musicEl.pause();
-      stopRollSound();
-    } else if (state.audioReady && musicEl) {
-      const p = musicEl.play();
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    }
+    if (document.hidden) scheduleVisibilityPause();
+    else cancelVisibilityPause();
   });
+  window.addEventListener("pagehide", scheduleVisibilityPause);
+  window.addEventListener("blur", scheduleVisibilityPause);
+  window.addEventListener("focus", cancelVisibilityPause);
 
   setupCanvas();
   requestAnimationFrame(loop);
