@@ -2,7 +2,7 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v1.0.1
+   * Meowmoon Bowling v1.0.2
    * Tenth playable browser/PWA prototype hotfix: guarantees Neon Arcade Maze levels on a predictable cadence for testing.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
@@ -19,6 +19,7 @@
   const AUTO_PAUSE_GRACE_MS = 500;
   const ROTATING_TEXT_MS = 60000;
   const BALL_SPEED = 740; // CSS pixels per second; steady and not twitchy.
+  const MAZE_BALL_SPEED = BALL_SPEED * 0.50; // v1.0.2: slower reward maze traversal.
   const PIN_FADE_DELAY_MS = 220;
   const PIN_FADE_MS = 720;
   const MAX_ROLLS_PER_LEVEL = 8;
@@ -29,8 +30,8 @@
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
   const SFX_GAIN = 4.1;
   const MAZE_LEVEL_INTERVAL = 4;
-  const MAZE_PATH_PIN_COUNT_RANGE = [5, 8];
-  const MAZE_FINAL_PIN_COUNT_RANGE = [5, 8];
+  const MAZE_PATH_PIN_COUNT_RANGE = [10, 14];
+  const MAZE_FINAL_PIN_COUNT_RANGE = [6, 9];
 
 
   const ROTATING_STATUS_TEXTS = [
@@ -668,7 +669,7 @@
     if (game.level <= 0) return false;
     if (game.level === 1 && !game.introDismissed) return false;
     if (game.lastLevelWasMaze) return false;
-    // v1.0.1 hotfix: make maze levels predictable enough for review.
+    // v1.0.2 keeps the v1.0.1 predictable maze cadence for review.
     // A maze level is guaranteed on every fourth level: 4, 8, 12, etc.
     return game.level % MAZE_LEVEL_INTERVAL === 0;
   }
@@ -701,65 +702,95 @@
 
   function generateMazeLevel() {
     const start = { x: layout.rollerX, y: layout.rollerY - layout.ballR * 0.55 };
-    const left = layout.wallLeft + layout.pinH * 0.35;
-    const right = layout.wallRight - layout.pinH * 0.35;
-    const top = layout.playTop + layout.pinH * 0.10;
-    const bottom = layout.playBottom - layout.pinH * 0.18;
-    const laneCount = randInt(5, 6);
-    const rowCount = randInt(5, 6);
+    const left = layout.wallLeft + layout.pinH * 0.28;
+    const right = layout.wallRight - layout.pinH * 0.28;
+    const top = layout.playTop + layout.pinH * 0.05;
+    const bottom = layout.playBottom - layout.pinH * 0.08;
+    const laneCount = randInt(6, 7);
+    const rowCount = randInt(7, 9);
     const laneXs = [];
     for (let i = 0; i < laneCount; i += 1) {
-      laneXs.push(lerp(left, right, i / (laneCount - 1)) + rand(-layout.pinW * 0.55, layout.pinW * 0.55));
+      laneXs.push(lerp(left, right, i / (laneCount - 1)) + rand(-layout.pinW * 0.22, layout.pinW * 0.22));
     }
     const rowYs = [];
     for (let i = 0; i < rowCount; i += 1) {
-      rowYs.push(lerp(bottom, top, i / (rowCount - 1)) + rand(-layout.pinH * 0.08, layout.pinH * 0.08));
+      rowYs.push(lerp(bottom, top, i / (rowCount - 1)) + rand(-layout.pinH * 0.035, layout.pinH * 0.035));
     }
+
     const centerLane = laneXs.reduce((best, x, idx) => Math.abs(x - start.x) < Math.abs(laneXs[best] - start.x) ? idx : best, 0);
     let col = centerLane;
     const route = [start, { x: laneXs[col], y: start.y - layout.ballR * 0.85 }, { x: laneXs[col], y: rowYs[0] }];
-    for (let r = 1; r < rowYs.length; r += 1) {
-      let nextCol = clamp(col + randInt(-2, 2), 0, laneXs.length - 1);
-      if (nextCol === col) nextCol = clamp(col + (Math.random() < 0.5 ? -1 : 1), 0, laneXs.length - 1);
-      route.push({ x: laneXs[nextCol], y: rowYs[r - 1] });
-      route.push({ x: laneXs[nextCol], y: rowYs[r] });
-      col = nextCol;
-    }
-    const exit = { x: laneXs[col], y: top - layout.pinH * 0.10 };
-    route.push(exit);
+    const sideFirst = Math.random() < 0.5;
 
-    const branches = [];
-    for (let i = 1; i < route.length - 1; i += 2) {
-      const p = route[i];
-      const horizontal = i + 1 < route.length && Math.abs(route[i + 1].x - p.x) > Math.abs(route[i + 1].y - p.y);
-      if (!horizontal) continue;
-      if (Math.random() < 0.72) {
-        const dir = Math.random() < 0.5 ? -1 : 1;
-        const endX = clamp(p.x + dir * rand(layout.pinH * 0.7, layout.pinH * 1.6), left, right);
-        branches.push([{ x: p.x, y: p.y }, { x: endX, y: p.y }]);
+    for (let r = 0; r < rowYs.length; r += 1) {
+      const preferLeft = (r % 2 === 0) ? sideFirst : !sideFirst;
+      const edgeTarget = preferLeft ? randInt(0, Math.max(1, Math.floor(laneCount * 0.30))) : randInt(Math.ceil(laneCount * 0.70), laneCount - 1);
+      let targetCol = clamp(edgeTarget + randInt(-1, 1), 0, laneCount - 1);
+      if (targetCol === col && laneCount > 2) targetCol = preferLeft ? 0 : laneCount - 1;
+
+      if (targetCol !== col) {
+        const stepDir = targetCol > col ? 1 : -1;
+        while (col !== targetCol) {
+          col += stepDir;
+          route.push({ x: laneXs[col], y: rowYs[r] });
+        }
+      } else {
+        route.push({ x: laneXs[col], y: rowYs[r] });
+      }
+
+      if (r < rowYs.length - 1) {
+        const nextY = rowYs[r + 1];
+        route.push({ x: laneXs[col], y: nextY });
+        if (Math.random() < 0.42) {
+          const jogCol = clamp(col + (Math.random() < 0.5 ? -1 : 1), 0, laneCount - 1);
+          if (jogCol !== col) {
+            route.push({ x: laneXs[jogCol], y: nextY });
+            col = jogCol;
+          }
+        }
       }
     }
 
-    game.maze = { path: route, branches, start, exit };
+    const exitCol = col;
+    const exit = { x: laneXs[exitCol], y: top - layout.pinH * 0.06 };
+    route.push(exit);
+
+    const branches = [];
+    const addBranch = (from, to) => branches.push([from, to]);
+    for (let r = 0; r < rowYs.length; r += 1) {
+      const y = rowYs[r];
+      for (let c = 0; c < laneXs.length; c += 1) {
+        if (Math.random() < 0.28) {
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          const c2 = clamp(c + dir * randInt(1, 2), 0, laneXs.length - 1);
+          if (c2 !== c) addBranch({ x: laneXs[c], y }, { x: laneXs[c2], y });
+        }
+      }
+    }
+    for (let c = 0; c < laneXs.length; c += 1) {
+      for (let r = 0; r < rowYs.length - 1; r += 1) {
+        if (Math.random() < 0.18) addBranch({ x: laneXs[c], y: rowYs[r] }, { x: laneXs[c], y: rowYs[r + 1] });
+      }
+    }
+
+    game.maze = { path: route, branches, start, exit, laneXs, rowYs };
 
     const pathCount = randInt(MAZE_PATH_PIN_COUNT_RANGE[0], MAZE_PATH_PIN_COUNT_RANGE[1]);
     const finalCount = randInt(MAZE_FINAL_PIN_COUNT_RANGE[0], MAZE_FINAL_PIN_COUNT_RANGE[1]);
     const pathLen = polylineLength(route);
-    const usedPoints = [];
 
     for (let i = 0; i < pathCount; i += 1) {
-      const dist = lerp(pathLen * 0.16, pathLen * 0.78, (i + rand(0.12, 0.88)) / pathCount);
+      const dist = lerp(pathLen * 0.10, pathLen * 0.84, (i + rand(0.18, 0.82)) / pathCount);
       const pt = pointAlongPolyline(route, dist);
-      const pin = createPin(pt.x + rand(-layout.pinW * 0.10, layout.pinW * 0.10), pt.y + rand(-layout.pinW * 0.10, layout.pinW * 0.10), game.pins.length);
+      const pin = createPin(pt.x + rand(-layout.pinW * 0.08, layout.pinW * 0.08), pt.y + rand(-layout.pinW * 0.08, layout.pinW * 0.08), game.pins.length);
       pin.mazePin = true;
       pin.mazeFinalCluster = false;
-      usedPoints.push({ x: pin.x, y: pin.y });
       game.pins.push(pin);
     }
 
     for (let i = 0; i < finalCount; i += 1) {
-      const ang = (i / finalCount) * TAU + rand(-0.14, 0.14);
-      const ring = i < Math.ceil(finalCount / 2) ? layout.pinH * 0.28 : layout.pinH * 0.50;
+      const ang = (i / finalCount) * TAU + rand(-0.16, 0.16);
+      const ring = i < Math.ceil(finalCount / 2) ? layout.pinH * 0.30 : layout.pinH * 0.54;
       const px = exit.x + Math.cos(ang) * ring + rand(-layout.pinW * 0.18, layout.pinW * 0.18);
       const py = exit.y + layout.pinH * 0.48 + Math.sin(ang) * ring * 0.72 + rand(-layout.pinW * 0.18, layout.pinW * 0.18);
       const pin = createPin(clamp(px, left, right), clamp(py, top, bottom), game.pins.length);
@@ -1144,7 +1175,7 @@
     const currentTime = nowMs();
     ball.trail.push({ x: ball.x, y: ball.y, at: currentTime });
     if (ball.trail.length > 32) ball.trail.shift();
-    let remaining = BALL_SPEED * dt;
+    let remaining = MAZE_BALL_SPEED * dt;
 
     while (remaining > 0 && ball.segment < ball.path.length - 1) {
       const a = ball.path[ball.segment];
@@ -1966,7 +1997,7 @@
     const glowPulse = 0.86 + Math.sin(current / 260) * 0.08;
     ctx.save();
     ctx.fillStyle = "rgba(9, 15, 36, 0.58)";
-    roundRect(ctx, layout.wallLeft - 6, layout.playTop - 10, layout.wallRight - layout.wallLeft + 12, layout.playBottom - layout.playTop + layout.pinH * 0.70, 24);
+    roundRect(ctx, layout.wallLeft - 6, layout.playTop - 14, layout.wallRight - layout.wallLeft + 12, layout.playBottom - layout.playTop + layout.pinH * 0.88, 18);
     ctx.fill();
     ctx.restore();
 
@@ -2030,14 +2061,14 @@
     ctx.fillRect(0, 0, view.w, view.h);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const big = clamp(view.w * 0.18, 64, 138) * pulse;
+    const big = clamp(view.w * 0.105, 38, 86) * pulse;
     ctx.font = `1000 ${big}px system-ui, -apple-system, Segoe UI, sans-serif`;
     ctx.lineWidth = Math.max(6, big * 0.07);
     ctx.strokeStyle = "rgba(60, 28, 132, 0.95)";
     ctx.fillStyle = "#ffffff";
     ctx.strokeText("MAZE LEVEL!", view.w / 2, view.h * 0.41);
     ctx.fillText("MAZE LEVEL!", view.w / 2, view.h * 0.41);
-    const small = clamp(view.w * 0.052, 20, 34);
+    const small = clamp(view.w * 0.042, 16, 28);
     ctx.font = `900 ${small}px system-ui, -apple-system, Segoe UI, sans-serif`;
     ctx.lineWidth = Math.max(4, small * 0.08);
     ctx.strokeStyle = "rgba(20, 24, 80, 0.82)";
