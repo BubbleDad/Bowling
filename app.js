@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.3
-   * Third playable browser/PWA prototype: full-screen tap rolling, pin fade-outs, and rare rocket-pin special animation.
+   * Meowmoon Bowling v0.4
+   * Fourth playable browser/PWA prototype: expanded rare special-pin animations, pin fade-outs, no synth background fallback, and text-box quote cleanup.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -21,15 +21,16 @@
   const BALL_SPEED = 740; // CSS pixels per second; steady and not twitchy.
   const PIN_FADE_DELAY_MS = 220;
   const PIN_FADE_MS = 720;
-  const ROCKET_MIN_LEVEL_GAP = 4;
-  const ROCKET_SPECIAL_LEVEL_CHANCE = 0.36;
-  const ROCKET_SPECIAL_HIT_CHANCE = 0.32;
-  const ROCKET_DURATION_MS = 2800;
+  const SPECIAL_MIN_LEVEL_GAP = 4;
+  const SPECIAL_LEVEL_CHANCE = 0.88;
+  const SPECIAL_HIT_CHANCE = 0.42;
+  const SPECIAL_LAST_PIN_CHANCE = 0.20;
+  const SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw"];
 
 
   const ROTATING_STATUS_TEXTS = [
     "Press cat for 3 seconds to pause game",
-    "Music: \"Jesu, Joy of Man's Desiring\" by Bach",
+    "Music: Jesu, Joy of Mans Desiring by Bach",
     "Meowmoon loves to play with you"
   ];
 
@@ -79,9 +80,10 @@
     message: "Hi there, bowler! Tap anywhere to roll.",
     particles: [],
     nextBallSeed: 0,
-    lastRocketLevel: -99,
-    rocketAvailableThisLevel: false,
-    rocketUsedThisLevel: false
+    specialCooldowns: { rocket: -99, pinata: -99, balloon: -99, firework: -99, jelly: -99, catpaw: -99 },
+    specialAvailableThisLevel: false,
+    specialTypePoolThisLevel: [],
+    specialUsedThisLevel: false
   };
 
   const messages = [
@@ -126,8 +128,6 @@
 
     async startMusic() {
       if (this.isMutedByPause) return;
-
-      // Preferred path: user can place the Bach MP3 here without changing code.
       if (!this.musicAudio) {
         this.musicAudio = document.getElementById("bachMusic") || new Audio("audio/jesu-joy-piano-loop.mp3");
         this.musicAudio.loop = true;
@@ -137,25 +137,17 @@
         this.musicAudio.setAttribute("webkit-playsinline", "");
         this.musicAudio.preload = "auto";
       }
-
-      if (!this.usingFileMusic) {
-        try {
-          await this.musicAudio.play();
-          this.usingFileMusic = true;
-          this.stopSynthMusic();
-          return;
-        } catch (err) {
-          this.usingFileMusic = false;
-        }
+      try {
+        await this.musicAudio.play();
+        this.usingFileMusic = true;
+      } catch (err) {
+        this.usingFileMusic = false;
       }
-
-      this.startSynthMusic();
     },
 
     pauseMusic() {
       this.isMutedByPause = true;
       if (this.musicAudio) this.musicAudio.pause();
-      this.stopSynthMusic();
       this.stopRolling();
       this.stopRocketFlight();
     },
@@ -299,6 +291,71 @@
       });
     },
 
+    pinataBurst() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(180, now, 0.14, 0.10, "square", 800);
+      this.playTone(260, now + 0.03, 0.18, 0.08, "triangle", 1400);
+      this.playTone(720, now + 0.07, 0.22, 0.045, "triangle", 2200);
+    },
+
+    balloonInflate() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(220, now, 0.22, 0.05, "sine", 1200);
+      this.playTone(300, now + 0.08, 0.24, 0.04, "triangle", 1500);
+    },
+
+    balloonPop() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(480, now, 0.08, 0.07, "square", 2000);
+      this.playTone(860, now + 0.015, 0.12, 0.04, "triangle", 2400);
+    },
+
+    fireworkLaunch() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(140, now, 0.12, 0.10, "sawtooth", 1000);
+      this.playTone(220, now + 0.03, 0.18, 0.08, "triangle", 1400);
+      this.startRocketFlight();
+    },
+
+    fireworkBurst() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      [520, 650, 820, 1040, 1300].forEach((f, i) => this.playTone(f, now + i * 0.02, 0.24, 0.055, "triangle", 2400));
+      this.playTone(120, now, 0.16, 0.12, "square", 900);
+    },
+
+    jellyWobble() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(190, now, 0.20, 0.05, "sine", 700);
+      this.playTone(150, now + 0.12, 0.24, 0.05, "triangle", 900);
+    },
+
+    jellyMelt() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(300, now, 0.20, 0.04, "triangle", 1200);
+      this.playTone(180, now + 0.06, 0.26, 0.05, "sine", 800);
+    },
+
+    catPawSwipe() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(240, now, 0.14, 0.06, "triangle", 1200);
+      this.playTone(160, now + 0.04, 0.10, 0.06, "square", 900);
+    },
+
+    catPawBop() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(180, now, 0.10, 0.09, "square", 850);
+      this.playTone(520, now + 0.02, 0.16, 0.04, "triangle", 1700);
+    },
+
     hitPins(count = 1) {
       if (!this.context || this.isMutedByPause) return;
       const now = this.context.currentTime;
@@ -396,8 +453,9 @@
     game.phase = currentTitleAlpha(nowMs()) > 0.01 ? "title" : "playing";
     game.forceHitNext = false;
     game.particles = [];
-    game.rocketUsedThisLevel = false;
-    game.rocketAvailableThisLevel = (game.level - game.lastRocketLevel >= ROCKET_MIN_LEVEL_GAP) && Math.random() < ROCKET_SPECIAL_LEVEL_CHANCE;
+    game.specialUsedThisLevel = false;
+    game.specialTypePoolThisLevel = SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
+    game.specialAvailableThisLevel = game.specialTypePoolThisLevel.length > 0 && Math.random() < SPECIAL_LEVEL_CHANCE;
     game.messageIndex = (game.level - 1) % messages.length;
     game.message = messages[game.messageIndex];
     generatePins();
@@ -580,15 +638,14 @@
       pin.hitAt += pausedDuration;
       if (pin.fadeStartAt) pin.fadeStartAt += pausedDuration;
       if (pin.rocket) {
-        pin.rocket.startedAt += pausedDuration;
-        pin.rocket.burstAt += pausedDuration;
+        ["startedAt", "burstAt", "popAt", "meltAt", "swipeAt", "finishAt"].forEach(key => { if (pin.rocket[key]) pin.rocket[key] += pausedDuration; });
       }
     }
     game.phase = game.previousPhase || "playing";
     if (game.phase === "title") game.phase = "playing";
     audio.resumeMusic();
     if (game.ball) audio.startRolling();
-    if (game.pins.some(pin => pin.rocket && !pin.removed)) audio.startRocketFlight();
+    if (game.pins.some(pin => pin.rocket && !pin.removed && (pin.rocket.type === "rocket" || pin.rocket.type === "firework"))) audio.startRocketFlight();
   }
 
   function fireBall(tap) {
@@ -753,16 +810,17 @@
   function resolveBallHit(pin) {
     audio.stopRolling();
     const knocked = knockPinsFrom(pin);
-    const rocketHit = knocked.some(p => p.rocket);
+    const specialHit = knocked.some(p => p.rocket);
     game.ball = null;
     game.pathPreview = [];
     game.forceHitNext = false;
     game.phase = "resolving";
     game.message = messages[(++game.messageIndex) % messages.length];
     audio.hitPins(knocked.length);
-    if (!rocketHit) audio.pinFall(knocked.length);
+    if (!specialHit) audio.pinFall(knocked.length);
     makeImpactParticles(pin.x, pin.y, knocked.length);
-    game.resolvingUntil = nowMs() + (rocketHit ? ROCKET_DURATION_MS + 140 : PIN_FADE_DELAY_MS + PIN_FADE_MS + 160);
+    const longestSpecial = knocked.reduce((m, p) => Math.max(m, p.rocket ? ((p.rocket.finishAt || (p.rocket.startedAt + p.rocket.duration)) - nowMs()) : 0), 0);
+    game.resolvingUntil = nowMs() + (specialHit ? Math.max(700, longestSpecial + 160) : PIN_FADE_DELAY_MS + PIN_FADE_MS + 160);
   }
 
   function resolveMiss() {
@@ -786,8 +844,8 @@
       const pin = item.pin;
       if (!pin || seen.has(pin.id) || pin.fallen || pin.falling || pin.rocket || pin.removed) continue;
       seen.add(pin.id);
-      if (item.depth === 0 && shouldLaunchRocketPin(pin)) {
-        launchRocketPin(pin, current);
+      if (item.depth === 0 && shouldLaunchSpecialPin(pin)) {
+        launchSpecialPin(pin, current);
         knocked.push(pin);
         break;
       }
@@ -820,18 +878,23 @@
     return knocked;
   }
 
-  function shouldLaunchRocketPin(pin) {
-    if (game.rocketUsedThisLevel) return false;
-    if (!game.rocketAvailableThisLevel) return false;
-    if (game.level - game.lastRocketLevel < ROCKET_MIN_LEVEL_GAP) return false;
-    if (remainingUprightCount() <= 1) return Math.random() < 0.18;
-    return Math.random() < ROCKET_SPECIAL_HIT_CHANCE;
+  function shouldLaunchSpecialPin(pin) {
+    if (game.specialUsedThisLevel) return false;
+    if (!game.specialAvailableThisLevel) return false;
+    const pool = SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
+    if (!pool.length) return false;
+    const chance = remainingUprightCount() <= 1 ? SPECIAL_LAST_PIN_CHANCE : SPECIAL_HIT_CHANCE;
+    if (Math.random() >= chance) return false;
+    game.specialTypePoolThisLevel = pool;
+    return true;
   }
 
-  function launchRocketPin(pin, current) {
-    game.rocketUsedThisLevel = true;
-    game.rocketAvailableThisLevel = false;
-    game.lastRocketLevel = game.level;
+  function launchSpecialPin(pin, current) {
+    const pool = game.specialTypePoolThisLevel.length ? game.specialTypePoolThisLevel : SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
+    const type = pool[randInt(0, pool.length - 1)];
+    game.specialUsedThisLevel = true;
+    game.specialAvailableThisLevel = false;
+    game.specialCooldowns[type] = game.level;
     pin.falling = false;
     pin.fallen = true;
     pin.fading = false;
@@ -839,24 +902,49 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(1100, 1700) };
+    const duration = durationMap[type];
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
     const exitY = rand(layout.playTop + layout.pinH * 0.2, layout.playBottom - layout.pinH * 0.4);
+    const variant = randInt(0, 9999);
     pin.rocket = {
-      startedAt: current,
-      burstAt: current + ROCKET_DURATION_MS * 0.78,
-      duration: ROCKET_DURATION_MS,
-      burstDone: false,
+      type, variant, startedAt: current, duration,
+      burstAt: current + duration * rand(0.45, 0.82),
+      popAt: current + duration * rand(0.70, 0.88),
+      meltAt: current + duration * rand(0.62, 0.82),
+      swipeAt: current + duration * rand(0.30, 0.52),
+      finishAt: current + duration, burstDone: false, pawDone: false, popped: false,
+      balloonColor: ["#ff6fae", "#7bdfff", "#ffe36d", "#9d7bff", "#63e38c"][randInt(0,4)],
+      jellyColor: ["#ff88c2", "#8ee0ff", "#a7ff7d", "#ffe36d", "#b59aff"][randInt(0,4)],
+      pawSide: Math.random() < 0.5 ? -1 : 1,
+      exit: { x: exitX, y: exitY },
       path: [
         { x: pin.x, y: pin.y },
         { x: rand(layout.wallLeft + layout.pinH * 0.4, layout.wallRight - layout.pinH * 0.4), y: rand(layout.playTop + layout.pinH * 0.2, layout.playBottom - layout.pinH * 0.8) },
         { x: rand(layout.wallLeft + layout.pinH * 0.4, layout.wallRight - layout.pinH * 0.4), y: rand(layout.playTop + layout.pinH * 0.2, layout.playBottom - layout.pinH * 0.8) },
         { x: exitX, y: exitY }
-      ],
-      trail: []
+      ]
     };
-    audio.rocketLaunch();
-    makeRocketTrailParticles(pin.x, pin.y, 14);
+    if (type === "firework") {
+      const burstX = rand(layout.wallLeft + layout.pinH * 0.7, layout.wallRight - layout.pinH * 0.7);
+      const burstY = rand(layout.playTop + layout.pinH * 0.25, layout.playTop + layout.pinH * 1.4);
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: lerp(pin.x, burstX, 0.35), y: lerp(pin.y, burstY, 0.55) }, { x: burstX, y: burstY }, { x: burstX, y: burstY - layout.pinH * 0.12 }];
+      audio.fireworkLaunch();
+    } else if (type === "rocket") {
+      audio.rocketLaunch();
+      makeRocketTrailParticles(pin.x, pin.y, 14);
+    } else if (type === "pinata") {
+      audio.pinataBurst();
+    } else if (type === "balloon") {
+      audio.balloonInflate();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: pin.x + rand(-layout.pinH * 0.45, layout.pinH * 0.45), y: pin.y - layout.pinH * rand(1.2, 2.2) }, { x: pin.x + rand(-layout.pinH * 0.85, layout.pinH * 0.85), y: layout.playTop - layout.pinH * 0.4 }, { x: pin.x + rand(-layout.pinH, layout.pinH), y: -layout.pinH * 1.2 }];
+    } else if (type === "jelly") {
+      audio.jellyWobble();
+    } else if (type === "catpaw") {
+      audio.catPawSwipe();
+      pin.rocket.exit = { x: exitSide < 0 ? -layout.pinH * 1.5 : view.w + layout.pinH * 1.5, y: pin.y + rand(-layout.pinH * 0.2, layout.pinH * 0.15) };
+    }
   }
 
   function knockOnePin(pin, depth, power, current) {
@@ -887,11 +975,11 @@
   }
 
   function updatePins(current, dt) {
-    let activeRockets = false;
+    let activeFlightSpecials = false;
     for (const pin of game.pins) {
       if (pin.rocket && !pin.removed) {
-        activeRockets = true;
-        updateRocketPin(pin, current, dt);
+        if (pin.rocket.type === "rocket" || pin.rocket.type === "firework") activeFlightSpecials = true;
+        updateSpecialPin(pin, current, dt);
         continue;
       }
       if (pin.fading && current - pin.fadeStartAt >= PIN_FADE_MS) {
@@ -915,34 +1003,63 @@
         pin.fadeStartAt = current + PIN_FADE_DELAY_MS;
       }
     }
-    if (!activeRockets) audio.stopRocketFlight();
+    if (!activeFlightSpecials) audio.stopRocketFlight();
     game.pins = game.pins.filter(pin => !pin.removed);
   }
 
-  function updateRocketPin(pin, current, dt) {
-    const r = pin.rocket;
-    const age = current - r.startedAt;
-    const t = clamp(age / r.duration, 0, 1);
-    const path = r.path;
-    const scaled = t * (path.length - 1);
-    const segment = Math.min(path.length - 2, Math.floor(scaled));
-    const localT = scaled - segment;
-    const eased = 0.5 - Math.cos(localT * Math.PI) * 0.5;
-    const a = path[segment];
-    const b = path[segment + 1];
-    const wobble = Math.sin(age / 90) * layout.pinH * 0.035;
-    pin.x = lerp(a.x, b.x, eased) + wobble;
-    pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 120) * layout.pinH * 0.025;
-    pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * 0.18;
-    if (Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
-    if (!r.burstDone && current >= r.burstAt) {
-      r.burstDone = true;
-      audio.rocketBurst();
-      makePinataBurst(pin.x, pin.y);
+  function updateSpecialPin(pin, current, dt) {
+    const s = pin.rocket;
+    if (!s) return;
+    const age = current - s.startedAt;
+    const t = clamp(age / s.duration, 0, 1);
+
+    if (s.type === "rocket" || s.type === "firework" || s.type === "balloon") {
+      const path = s.path;
+      const scaled = t * (path.length - 1);
+      const segment = Math.min(path.length - 2, Math.floor(scaled));
+      const localT = scaled - segment;
+      const eased = 0.5 - Math.cos(localT * Math.PI) * 0.5;
+      const a = path[segment];
+      const b = path[segment + 1];
+      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : layout.pinH * 0.035;
+      pin.x = lerp(a.x, b.x, eased) + Math.sin(age / 120 + (s.variant % 7)) * wobbleAmp;
+      pin.y = lerp(a.y, b.y, eased) + (s.type === "balloon" ? Math.cos(age / 180) * layout.pinH * 0.06 : Math.cos(age / 120) * layout.pinH * 0.025);
+      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : 0.18);
+      if ((s.type === "rocket" || s.type === "firework") && Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
+      if (s.type === "rocket" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.rocketBurst(); makePinataBurst(pin.x, pin.y); }
+      if (s.type === "firework" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.fireworkBurst(); makeFireworkBurst(pin.x, pin.y); }
+      if (s.type === "balloon" && !s.popped && current >= s.popAt) { s.popped = true; audio.balloonPop(); makeBalloonPop(pin.x, pin.y, s.balloonColor); }
+      if (t >= 1) {
+        pin.removed = true;
+        if ((s.type === "rocket" || s.type === "firework") && !game.pins.some(p => p !== pin && p.rocket && !p.removed && (p.rocket.type === "rocket" || p.rocket.type === "firework"))) audio.stopRocketFlight();
+      }
+      return;
     }
-    if (t >= 1) {
-      pin.removed = true;
-      if (!game.pins.some(p => p !== pin && p.rocket && !p.removed)) audio.stopRocketFlight();
+
+    if (s.type === "pinata") {
+      pin.angle = Math.sin(age / 55) * 0.18 * (1 - t * 0.25);
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makePinataBurst(pin.x, pin.y); }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "jelly") {
+      if (!s.melted && current >= s.meltAt) { s.melted = true; audio.jellyMelt(); makeJellyDrips(pin.x, pin.y, s.jellyColor); }
+      pin.angle = Math.sin(age / 80) * 0.10;
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "catpaw") {
+      const impactT = clamp((current - s.swipeAt) / (s.duration * 0.28), 0, 1);
+      if (!s.pawDone && current >= s.swipeAt) { s.pawDone = true; audio.catPawBop(); makeCatPawBurst(pin.x, pin.y); }
+      if (s.pawDone) {
+        pin.x = lerp(pin.x, s.exit.x, impactT * 0.18);
+        pin.y = lerp(pin.y, s.exit.y, impactT * 0.18);
+        pin.angle += dt * (s.pawSide * 7);
+      }
+      if (t >= 1) pin.removed = true;
+      return;
     }
   }
 
@@ -1003,18 +1120,39 @@
     for (let i = 0; i < 86; i += 1) {
       const angle = rand(0, TAU);
       const speed = rand(80, 260);
-      game.particles.push({
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - rand(20, 150),
-        size: rand(5, 15),
-        color: colors[randInt(0, colors.length - 1)],
-        shape: shapes[randInt(0, shapes.length - 1)],
-        spin: rand(-7, 7),
-        startedAt: nowMs(),
-        duration: rand(1000, 2100)
-      });
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(20, 150), size: rand(5, 15), color: colors[randInt(0, colors.length - 1)], shape: shapes[randInt(0, shapes.length - 1)], spin: rand(-7, 7), startedAt: nowMs(), duration: rand(1000, 2100) });
+    }
+  }
+
+  function makeFireworkBurst(x, y) {
+    const colors = ["#fff7a8", "#ffffff", "#7bdfff", "#ff9acb", "#8d63ff", "#ff7a31"];
+    for (let i = 0; i < 92; i += 1) {
+      const angle = rand(0, TAU);
+      const speed = rand(90, 300);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, size: rand(3, 11), color: colors[randInt(0, colors.length - 1)], shape: Math.random() < 0.68 ? "spark" : "star", spin: rand(-8, 8), startedAt: nowMs(), duration: rand(700, 1600) });
+    }
+  }
+
+  function makeBalloonPop(x, y, color) {
+    for (let i = 0; i < 44; i += 1) {
+      const angle = rand(0, TAU);
+      const speed = rand(35, 180);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(10, 80), size: rand(3, 9), color: Math.random() < 0.7 ? color : ["#ffffff", "#fff7a8", "#7bdfff"][randInt(0,2)], shape: Math.random() < 0.55 ? "confetti" : "spark", spin: rand(-7, 7), startedAt: nowMs(), duration: rand(500, 1200) });
+    }
+  }
+
+  function makeJellyDrips(x, y, color) {
+    for (let i = 0; i < 34; i += 1) {
+      game.particles.push({ x: x + rand(-layout.pinW * 0.4, layout.pinW * 0.4), y: y + rand(-layout.pinH * 0.1, layout.pinH * 0.3), vx: rand(-55, 55), vy: rand(-40, 90), size: rand(4, 12), color, shape: Math.random() < 0.5 ? "bubble" : "confetti", spin: rand(-3, 3), startedAt: nowMs(), duration: rand(650, 1400) });
+    }
+  }
+
+  function makeCatPawBurst(x, y) {
+    const colors = ["#ffffff", "#ffe36d", "#ff9acb", "#7bdfff"];
+    for (let i = 0; i < 36; i += 1) {
+      const angle = rand(-Math.PI * 0.8, Math.PI * 0.2);
+      const speed = rand(70, 220);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(20, 110), size: rand(5, 12), color: colors[randInt(0, colors.length - 1)], shape: Math.random() < 0.35 ? "paw" : "star", spin: rand(-5, 5), startedAt: nowMs(), duration: rand(650, 1400) });
     }
   }
 
@@ -1172,7 +1310,7 @@
   function drawPins(current) {
     const ordered = game.pins.slice().sort((a, b) => a.y - b.y);
     for (const pin of ordered) {
-      if (pin.rocket && !pin.removed) drawRocketPin(pin, current);
+      if (pin.rocket && !pin.removed) drawSpecialPin(pin, current);
       else drawPin(pin, current);
     }
   }
@@ -1265,6 +1403,17 @@
     ctx.restore();
   }
 
+  function drawSpecialPin(pin, current) {
+    const type = pin.rocket?.type || "rocket";
+    if (type === "rocket") return drawRocketPin(pin, current);
+    if (type === "pinata") return drawPinataPin(pin, current);
+    if (type === "balloon") return drawBalloonPin(pin, current);
+    if (type === "firework") return drawFireworkPin(pin, current);
+    if (type === "jelly") return drawJellyPin(pin, current);
+    if (type === "catpaw") return drawCatPawPin(pin, current);
+    return drawRocketPin(pin, current);
+  }
+
   function drawRocketPin(pin, current) {
     const w = layout.pinW * pin.scale;
     const h = layout.pinH * pin.scale;
@@ -1346,6 +1495,57 @@
     ctx.stroke();
 
     ctx.restore();
+  }
+
+  function drawPinataPin(pin, current) {
+    const s = pin.rocket;
+    const age = current - s.startedAt;
+    const shake = Math.sin(age / 45) * layout.pinW * 0.09;
+    const origX = pin.x;
+    pin.x += shake;
+    drawPin(pin, current);
+    pin.x = origX;
+    if (!s.burstDone) {
+      const w = layout.pinW * pin.scale; const h = layout.pinH * pin.scale;
+      ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(pin.angle);
+      ctx.strokeStyle = "rgba(110,70,40,0.65)"; ctx.lineWidth = Math.max(2, w * 0.05);
+      ctx.beginPath(); ctx.moveTo(-w * 0.12, -h * 0.2); ctx.lineTo(w * 0.18, h * 0.08); ctx.moveTo(w * 0.02, -h * 0.3); ctx.lineTo(-w * 0.16, h * 0.1); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawBalloonPin(pin, current) {
+    const s = pin.rocket; const w = layout.pinW * pin.scale; const h = layout.pinH * pin.scale;
+    const age = current - s.startedAt; const puff = 1 + 0.20 * Math.sin(Math.min(1, age / 500) * Math.PI * 0.8);
+    ctx.save(); ctx.globalAlpha = s.popped ? clamp(1 - (current - s.popAt) / 220, 0, 1) : 1; ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 170) * 0.12);
+    ctx.strokeStyle = "rgba(60,80,120,0.45)"; ctx.lineWidth = Math.max(1.5, w * 0.04); ctx.beginPath(); ctx.moveTo(0, h * 0.18); ctx.bezierCurveTo(-w * 0.2, h * 0.55, w * 0.15, h * 0.9, 0, h * 1.3); ctx.stroke();
+    ctx.fillStyle = s.balloonColor; ctx.beginPath(); ctx.ellipse(0, -h * 0.08, w * 0.92 * puff, h * 0.95 * puff, 0, 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = Math.max(1.2, w * 0.035); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.28)"; ctx.beginPath(); ctx.ellipse(-w * 0.25, -h * 0.3, w * 0.15, h * 0.22, -0.3, 0, TAU); ctx.fill(); ctx.restore();
+  }
+
+  function drawFireworkPin(pin, current) {
+    drawRocketPin(pin, current);
+    const s = pin.rocket; const age = current - s.startedAt;
+    ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = "#ffe36d"; ctx.lineWidth = Math.max(2, layout.pinW * 0.08); ctx.beginPath(); ctx.moveTo(pin.x, pin.y + layout.pinH * 0.5); ctx.lineTo(pin.x, pin.y + layout.pinH * (1.1 + 0.1 * Math.sin(age / 60))); ctx.stroke(); ctx.restore();
+  }
+
+  function drawJellyPin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt; const t = clamp(age / s.duration, 0, 1);
+    const squishX = 1 + Math.sin(age / 80) * 0.14 + (s.melted ? t * 0.25 : 0);
+    const squishY = 1 - Math.sin(age / 80) * 0.10 - (s.melted ? t * 0.30 : 0);
+    const w = layout.pinW * pin.scale; const h = layout.pinH * pin.scale;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 140) * 0.08); ctx.scale(squishX, squishY); ctx.globalAlpha = 0.88;
+    const body = ctx.createLinearGradient(-w * 0.6, -h * 0.5, w * 0.6, h * 0.6); body.addColorStop(0, "#ffffff"); body.addColorStop(0.1, s.jellyColor); body.addColorStop(1, "rgba(255,255,255,0.4)"); ctx.fillStyle = body; ctx.strokeStyle = "rgba(95, 90, 85, 0.32)"; ctx.lineWidth = Math.max(1.2, w * 0.05);
+    ctx.beginPath(); ctx.moveTo(0, -h * 0.55); ctx.bezierCurveTo(w * 0.38, -h * 0.54, w * 0.44, -h * 0.22, w * 0.20, -h * 0.11); ctx.bezierCurveTo(w * 0.64, h * 0.03, w * 0.62, h * 0.42, w * 0.31, h * 0.52); ctx.bezierCurveTo(w * 0.16, h * 0.59, -w * 0.16, h * 0.59, -w * 0.31, h * 0.52); ctx.bezierCurveTo(-w * 0.62, h * 0.42, -w * 0.64, h * 0.03, -w * 0.20, -h * 0.11); ctx.bezierCurveTo(-w * 0.44, -h * 0.22, -w * 0.38, -h * 0.54, 0, -h * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if (s.melted) { ctx.globalAlpha = 0.45; ctx.fillStyle = s.jellyColor; ctx.beginPath(); ctx.ellipse(0, h * 0.62, w * (0.55 + t * 0.5), h * 0.11, 0, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+
+  function drawCatPawPin(pin, current) {
+    drawPin(pin, current);
+    const s = pin.rocket; const age = current - s.startedAt; const pawProgress = clamp((current - s.swipeAt + s.duration * 0.25) / (s.duration * 0.45), 0, 1);
+    const baseX = s.pawSide < 0 ? -layout.pinH * 1.4 : view.w + layout.pinH * 1.4; const targetX = pin.x + s.pawSide * layout.pinH * 0.2; const pawX = lerp(baseX, targetX, pawProgress); const pawY = pin.y - layout.pinH * 0.15 + Math.sin(age / 120) * 4;
+    ctx.save(); ctx.translate(pawX, pawY); ctx.rotate((s.pawSide < 0 ? 1 : -1) * (0.18 + pawProgress * 0.3)); const size = layout.pinH * 0.72; ctx.fillStyle = "#ffd17a"; ctx.strokeStyle = "#b74f18"; ctx.lineWidth = Math.max(2, size * 0.05); ctx.beginPath(); ctx.ellipse(0, 0, size * 0.42, size * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke(); [[-0.24,-0.36],[-0.06,-0.46],[0.12,-0.46],[0.30,-0.35]].forEach(([ox,oy])=>{ctx.beginPath(); ctx.ellipse(size*ox,size*oy,size*0.11,size*0.13,0,0,TAU); ctx.fill(); ctx.stroke();}); ctx.restore();
   }
 
   function drawRoller() {
@@ -1820,6 +2020,11 @@
         ctx.beginPath();
         ctx.arc(-p.size * 0.16, -p.size * 0.18, p.size * 0.14, 0, TAU);
         ctx.fill();
+      } else if (p.shape === "bubble") {
+        ctx.beginPath(); ctx.arc(0, 0, p.size * 0.55, 0, TAU); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.beginPath(); ctx.arc(-p.size * 0.14, -p.size * 0.18, p.size * 0.16, 0, TAU); ctx.fill();
+      } else if (p.shape === "paw") {
+        drawPaw(0, 0, p.size * 0.55);
       } else {
         roundRect(ctx, -p.size * 0.55, -p.size * 0.25, p.size * 1.1, p.size * 0.5, p.size * 0.12);
         ctx.fill();
