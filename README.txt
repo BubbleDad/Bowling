@@ -1,5 +1,5 @@
-Meowmoon Bowling v0.8
-Eighth playable iteration
+Meowmoon Bowling v0.9
+Ninth playable iteration
 
 How to run locally
 1. Unzip the folder.
@@ -9,20 +9,16 @@ How to run locally
 5. Long-press the Meowmoon mascot for about 3 seconds to pause.
 6. Tap anywhere while paused to resume.
 
-Changes from v0.7
-- Added 6 new animal special pin animations with sounds:
-  * Bunny
-  * Frog
-  * Fish
-  * Bird
-  * Penguin
-  * Dog Zoomies
-- Removed all special ball animations so the bowling ball remains visually simple.
-- The focus remains on the pin animations.
-- Preserved the end-of-level multi-special celebration clear.
-- Preserved one special pin animation on every successful roll.
-- Preserved the no-more-than-8-roll completion assist.
-- Updated service worker cache version.
+Changes from v0.8
+- Removed the Treasure Chest, Fish, and Penguin animations from the active special-pin pool.
+- Replaced Dog Zoomies art with the Floppy-Ear Puppy Zoom version.
+- Replaced Frog art with the Crouch-and-Spring Frog version.
+- Replaced Airplane art with the Paper Airplane Pin version.
+- Replaced Bunny art with the Cream Bunny with Pink Accents version.
+- Split Piñata into two active special-pin variants:
+  * Layered Fringe Piñata
+  * Star Burst Piñata
+- Updated the app version and service worker cache version to v0.9.
 
 Design still implemented
 - Portrait-first tablet/iPad layout.
@@ -34,11 +30,11 @@ Design still implemented
 - Tap-to-aim with quiet assist.
 - Side-wall bounces still supported.
 - One special pin animation is intended to occur on every successful roll.
-- No special ball effects are assigned in v0.8.
+- No special ball effects are assigned in v0.9.
 - Levels are designed to finish in no more than 8 rolls.
 - Level ends with the MEOW reward and then loads the next level.
 
-Known v0.8 limitations
+Known v0.9 limitations
 - The special-animation art is still canvas-drawn rather than sprite-based.
-- Animal and vehicle behaviors are visual reward events, not realistic physics.
+- Vehicle and animal behaviors are visual reward events, not realistic physics.
 - This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.

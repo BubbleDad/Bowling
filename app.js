@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.8
-   * Eighth playable browser/PWA prototype: adds animal pin animations and removes special ball effects so focus stays on the pins.
+   * Meowmoon Bowling v0.9
+   * Ninth playable browser/PWA prototype: revises selected special pin animations and removes treasure chest, fish, and penguin from the active pool.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -24,7 +24,7 @@
   const MAX_ROLLS_PER_LEVEL = 8;
   const SPECIAL_PINS_PER_LEVEL = MAX_ROLLS_PER_LEVEL;
   const SPECIAL_BALLS_PER_LEVEL = 0;
-  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw", "treasure", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "fish", "bird", "penguin", "dogzoomies"];
+  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "pinatastar", "balloon", "firework", "jelly", "catpaw", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies"];
   const BALL_SPECIAL_TYPES = [];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
   const SFX_GAIN = 4.1;
@@ -1158,7 +1158,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000) };
     const duration = durationMap[type];
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -1194,6 +1194,8 @@
       audio.rocketLaunch();
       makeRocketTrailParticles(pin.x, pin.y, 14);
     } else if (type === "pinata") {
+      audio.pinataBurst();
+    } else if (type === "pinatastar") {
       audio.pinataBurst();
     } else if (type === "balloon") {
       audio.balloonInflate();
@@ -1326,7 +1328,7 @@
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (["rocket", "firework", "balloon", "toytrain", "kite", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "fish", "bird", "penguin", "dogzoomies"].includes(s.type)) {
+    if (["rocket", "firework", "balloon", "toytrain", "kite", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies"].includes(s.type)) {
       const path = s.path;
       const scaled = t * (path.length - 1);
       const segment = Math.min(path.length - 2, Math.floor(scaled));
@@ -1334,10 +1336,10 @@
       const eased = 0.5 - Math.cos(localT * Math.PI) * 0.5;
       const a = path[segment];
       const b = path[segment + 1];
-      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : s.type === "kite" ? layout.pinH * 0.12 : s.type === "helicopter" ? layout.pinH * 0.06 : s.type === "airplane" ? layout.pinH * 0.04 : s.type === "fish" ? layout.pinH * 0.08 : s.type === "bird" ? layout.pinH * 0.06 : s.type === "dogzoomies" ? layout.pinH * 0.05 : layout.pinH * 0.035;
+      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : s.type === "kite" ? layout.pinH * 0.12 : s.type === "helicopter" ? layout.pinH * 0.06 : s.type === "airplane" ? layout.pinH * 0.04 : s.type === "bird" ? layout.pinH * 0.06 : s.type === "dogzoomies" ? layout.pinH * 0.05 : layout.pinH * 0.035;
       pin.x = lerp(a.x, b.x, eased) + Math.sin(age / 120 + (s.variant % 7)) * wobbleAmp;
-      pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 140) * (s.type === "toytrain" || s.type === "bus" || s.type === "bulldozer" || s.type === "penguin" ? 3 : s.type === "helicopter" ? 8 : s.type === "bunny" ? 12 : s.type === "frog" ? 10 : s.type === "bird" ? 7 : s.type === "fish" ? 9 : layout.pinH * 0.025);
-      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : s.type === "kite" ? 0.35 : s.type === "racecar" ? 0.10 : s.type === "bus" ? 0.08 : s.type === "bulldozer" ? 0.07 : s.type === "bunny" ? 0.14 : s.type === "frog" ? 0.16 : s.type === "fish" ? 0.22 : s.type === "bird" ? 0.20 : s.type === "penguin" ? 0.10 : s.type === "dogzoomies" ? 0.22 : 0.18);
+      pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 140) * (s.type === "toytrain" || s.type === "bus" || s.type === "bulldozer" ? 3 : s.type === "helicopter" ? 8 : s.type === "bunny" ? 12 : s.type === "frog" ? 10 : s.type === "bird" ? 7 : layout.pinH * 0.025);
+      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : s.type === "kite" ? 0.35 : s.type === "racecar" ? 0.10 : s.type === "bus" ? 0.08 : s.type === "bulldozer" ? 0.07 : s.type === "bunny" ? 0.14 : s.type === "frog" ? 0.16 : s.type === "bird" ? 0.20 : s.type === "dogzoomies" ? 0.22 : 0.18);
       if (["rocket", "firework", "meteor"].includes(s.type) && Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
       if (s.type === "rocket" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.rocketBurst(); makePinataBurst(pin.x, pin.y); }
       if (s.type === "firework" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.fireworkBurst(); makeFireworkBurst(pin.x, pin.y); }
@@ -1350,9 +1352,7 @@
       if (s.type === "bulldozer" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBulldozerBurst(pin.x, pin.y); }
       if (s.type === "bunny" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBunnyBurst(pin.x, pin.y); }
       if (s.type === "frog" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeFrogBurst(pin.x, pin.y); }
-      if (s.type === "fish" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeFishBurst(pin.x, pin.y); }
       if (s.type === "bird" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBirdBurst(pin.x, pin.y); }
-      if (s.type === "penguin" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makePenguinBurst(pin.x, pin.y); }
       if (s.type === "dogzoomies" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeDogBurst(pin.x, pin.y); }
       if (s.type === "toytrain" && current >= (s.nextChug || 0)) { audio.toyTrainChug(); s.nextChug = current + 310; }
       if (s.type === "racecar" && current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 420; }
@@ -1362,9 +1362,7 @@
       if (s.type === "bulldozer" && current >= (s.nextChug || 0)) { audio.bulldozerClank(); s.nextChug = current + 320; }
       if (s.type === "bunny" && current >= (s.nextChug || 0)) { audio.bunnyHop(); s.nextChug = current + 340; }
       if (s.type === "frog" && current >= (s.nextChug || 0)) { audio.frogBoing(); s.nextChug = current + 420; }
-      if (s.type === "fish" && current >= (s.nextChug || 0)) { audio.fishBlub(); s.nextChug = current + 360; }
       if (s.type === "bird" && current >= (s.nextChug || 0)) { audio.birdChirp(); s.nextChug = current + 260; }
-      if (s.type === "penguin" && current >= (s.nextChug || 0)) { audio.penguinSlide(); s.nextChug = current + 480; }
       if (s.type === "dogzoomies" && current >= (s.nextChug || 0)) { audio.dogZoomies(); s.nextChug = current + 260; }
       if (t >= 1) {
         pin.removed = true;
@@ -1376,6 +1374,13 @@
     if (s.type === "pinata") {
       pin.angle = Math.sin(age / 55) * 0.18 * (1 - t * 0.25);
       if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makePinataBurst(pin.x, pin.y); }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "pinatastar") {
+      pin.angle = age / 280;
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makePinataBurst(pin.x, pin.y); makeFireworkBurst(pin.x, pin.y); }
       if (t >= 1) pin.removed = true;
       return;
     }
@@ -1831,6 +1836,7 @@
     const type = pin.rocket?.type || "rocket";
     if (type === "rocket") return drawRocketPin(pin, current);
     if (type === "pinata") return drawPinataPin(pin, current);
+    if (type === "pinatastar") return drawPinataStarPin(pin, current);
     if (type === "balloon") return drawBalloonPin(pin, current);
     if (type === "firework") return drawFireworkPin(pin, current);
     if (type === "jelly") return drawJellyPin(pin, current);
@@ -1939,20 +1945,65 @@
   }
 
   function drawPinataPin(pin, current) {
-    const s = pin.rocket;
-    const age = current - s.startedAt;
-    const shake = Math.sin(age / 45) * layout.pinW * 0.09;
-    const origX = pin.x;
-    pin.x += shake;
-    drawPin(pin, current);
-    pin.x = origX;
-    if (!s.burstDone) {
-      const w = layout.pinW * pin.scale; const h = layout.pinH * pin.scale;
-      ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(pin.angle);
-      ctx.strokeStyle = "rgba(110,70,40,0.65)"; ctx.lineWidth = Math.max(2, w * 0.05);
-      ctx.beginPath(); ctx.moveTo(-w * 0.12, -h * 0.2); ctx.lineTo(w * 0.18, h * 0.08); ctx.moveTo(w * 0.02, -h * 0.3); ctx.lineTo(-w * 0.16, h * 0.1); ctx.stroke();
-      ctx.restore();
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.62;
+    const swing = Math.sin(age / 65) * 0.12;
+    const fringeColors = ["#ff5a8e", "#8a5cff", "#41d6ff", "#5fd36a", "#ffe36d", "#ff8a33"];
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    ctx.rotate(swing);
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#315e8f";
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.64, size * 0.34, size * 0.08, 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < fringeColors.length; i += 1) {
+      const y = -size * 0.58 + i * size * 0.17;
+      ctx.fillStyle = fringeColors[i];
+      roundRect(ctx, -size * 0.26, y, size * 0.52, size * 0.19, size * 0.08);
+      ctx.fill();
+      for (let j = 0; j < 5; j += 1) {
+        const fx = -size * 0.22 + j * size * 0.11;
+        ctx.beginPath();
+        ctx.moveTo(fx, y + size * 0.19);
+        ctx.lineTo(fx + size * 0.04, y + size * 0.27 + Math.sin(age / 120 + j) * 2);
+        ctx.lineTo(fx + size * 0.08, y + size * 0.19);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
+    ctx.strokeStyle = "rgba(110,70,40,0.72)";
+    ctx.lineWidth = Math.max(2, size * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.68);
+    ctx.lineTo(0, -size * 0.88);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPinataStarPin(pin, current) {
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.62;
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    ctx.rotate(age / 380 + Math.sin(age / 160) * 0.08);
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#315e8f";
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.64, size * 0.34, size * 0.08, 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    const starColors = ["#ff5a8e", "#ffe36d", "#41d6ff", "#5fd36a", "#8a5cff", "#ff8a33"];
+    for (let i = 0; i < 2; i += 1) {
+      ctx.fillStyle = starColors[(Math.floor(age / 180) + i * 2) % starColors.length];
+      drawStar(0, 0, size * (0.42 - i * 0.08), size * (0.20 - i * 0.04), 6);
+    }
+    ctx.fillStyle = "#fff7ec";
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.12, 0, TAU);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawBalloonPin(pin, current) {
@@ -2057,12 +2108,31 @@
   }
 
   function drawAirplanePin(pin, current) {
-    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.56;
-    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 180) * 0.08);
-    ctx.fillStyle = "#ffffff"; roundRect(ctx, -size * 0.12, -size * 0.55, size * 0.24, size * 0.95, size * 0.12); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(0, -size*0.48); ctx.lineTo(size*0.14, -size*0.30); ctx.lineTo(-size*0.14, -size*0.30); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#7bdfff"; ctx.beginPath(); ctx.moveTo(-size*0.70, -size*0.05); ctx.lineTo(size*0.70, -size*0.05); ctx.lineTo(0, size*0.16); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#ef3340"; ctx.beginPath(); ctx.moveTo(0, size*0.34); ctx.lineTo(size*0.36, size*0.52); ctx.lineTo(0, size*0.10); ctx.closePath(); ctx.fill();
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.58;
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    ctx.rotate(-0.45 + Math.sin(age / 240) * 0.04);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#7aa3d6";
+    ctx.lineWidth = Math.max(2, size * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.86);
+    ctx.lineTo(size * 1.02, size * 0.68);
+    ctx.lineTo(0, size * 0.30);
+    ctx.lineTo(-size * 1.02, size * 0.68);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "#d91622";
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.80);
+    ctx.lineTo(0, size * 0.30);
+    ctx.moveTo(0, size * 0.30);
+    ctx.lineTo(size * 0.60, size * 0.52);
+    ctx.moveTo(0, size * 0.30);
+    ctx.lineTo(-size * 0.60, size * 0.52);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -2098,20 +2168,91 @@
   }
 
   function drawBunnyPin(pin, current) {
-    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.54;
-    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 140) * 0.08); ctx.fillStyle = "#f7f2ef";
-    ctx.beginPath(); ctx.ellipse(0, size * 0.05, size * 0.28, size * 0.24, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(size * 0.20, -size * 0.08, size * 0.16, size * 0.14, 0, 0, TAU); ctx.fill();
-    [[0.10,-0.42],[0.22,-0.40]].forEach(([ox,oy])=>{ ctx.beginPath(); ctx.ellipse(size*ox, size*oy, size*0.07, size*0.24, -0.1, 0, TAU); ctx.fill(); ctx.fillStyle="#ffd8e6"; ctx.beginPath(); ctx.ellipse(size*ox, size*(oy+0.01), size*0.03, size*0.16, -0.1, 0, TAU); ctx.fill(); ctx.fillStyle="#f7f2ef"; });
-    ctx.fillStyle="#ffb6c8"; ctx.beginPath(); ctx.arc(-size*0.22, size*0.12, size*0.06, 0, TAU); ctx.fill(); ctx.restore();
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.56;
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    ctx.rotate(Math.sin(age / 140) * 0.08);
+    ctx.fillStyle = "#f3e3cf";
+    ctx.strokeStyle = "#7a5f52";
+    ctx.lineWidth = Math.max(2, size * 0.035);
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.10, size * 0.28, size * 0.18, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(size * 0.22, -size * 0.04, size * 0.14, size * 0.12, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+    [[size * 0.12, -size * 0.52], [size * 0.24, -size * 0.50]].forEach(([ex, ey]) => {
+      ctx.fillStyle = "#f3e3cf";
+      ctx.beginPath();
+      ctx.ellipse(ex, ey, size * 0.05, size * 0.18, -0.1, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ff8ab3";
+      ctx.beginPath();
+      ctx.ellipse(ex, ey + size * 0.01, size * 0.024, size * 0.11, -0.1, 0, TAU);
+      ctx.fill();
+    });
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(-size * 0.24, size * 0.14, size * 0.10, size * 0.09, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#111827";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.26, -size * 0.08, size * 0.035, size * 0.045, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.245, -size * 0.095, size * 0.012, size * 0.012, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#ff8ab3";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.33, -size * 0.02, size * 0.03, size * 0.02, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#e33b51";
+    roundRect(ctx, size * 0.05, size * 0.14, size * 0.18, size * 0.08, size * 0.03);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawFrogPin(pin, current) {
-    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.54;
-    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 120) * 0.10); ctx.fillStyle = "#6fd567";
-    ctx.beginPath(); ctx.ellipse(0, size * 0.05, size * 0.30, size * 0.22, 0, 0, TAU); ctx.fill();
-    [-0.12,0.12].forEach(ox=>{ctx.beginPath(); ctx.arc(size*ox, -size*0.20, size*0.08, 0, TAU); ctx.fill(); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(size*ox, -size*0.20, size*0.04, 0, TAU); ctx.fill(); ctx.fillStyle="#6fd567";});
-    ctx.fillStyle="#f3ffb0"; ctx.beginPath(); ctx.ellipse(0, size*0.10, size*0.16, size*0.10, 0, 0, TAU); ctx.fill(); ctx.restore();
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.56;
+    const jump = (Math.sin(age / 500) + 1) / 2;
+    ctx.save();
+    ctx.translate(pin.x, pin.y - jump * size * 0.16);
+    ctx.scale(1 + 0.12 * (1 - jump), 1 - 0.10 * (1 - jump));
+    ctx.fillStyle = "#43a946";
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.08, size * 0.30, size * 0.18, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(size * 0.22, -size * 0.04, size * 0.15, size * 0.13, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "#2d7e33";
+    ctx.lineWidth = Math.max(3, size * 0.05);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, size * 0.18);
+    ctx.lineTo(-size * 0.36, size * 0.30);
+    ctx.lineTo(-size * 0.46, size * 0.22);
+    ctx.moveTo(size * 0.12, size * 0.18);
+    ctx.lineTo(size * 0.34, size * 0.32);
+    ctx.lineTo(size * 0.46, size * 0.22);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.15, -size * 0.16, size * 0.05, size * 0.05, 0, 0, TAU);
+    ctx.ellipse(size * 0.29, -size * 0.15, size * 0.05, size * 0.05, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#111111";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.15, -size * 0.16, size * 0.02, size * 0.02, 0, 0, TAU);
+    ctx.ellipse(size * 0.29, -size * 0.15, size * 0.02, size * 0.02, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawFishPin(pin, current) {
@@ -2140,12 +2281,52 @@
   }
 
   function drawDogPin(pin, current) {
-    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.54;
-    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 120) * 0.14); ctx.fillStyle = "#d69c6a";
-    ctx.beginPath(); ctx.ellipse(0, size*0.04, size*0.28, size*0.18, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(size*0.24, -size*0.05, size*0.16, size*0.14, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-size*0.26, -size*0.02); ctx.lineTo(-size*0.42, -size*0.16); ctx.lineTo(-size*0.36, size*0.02); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle="#8b5e3c"; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-size*0.20, -size*0.04); ctx.quadraticCurveTo(-size*0.38, -size*0.26, -size*0.44, -size*0.12); ctx.stroke(); ctx.restore();
+    const age = current - pin.rocket.startedAt;
+    const size = layout.pinH * 0.56;
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    ctx.rotate(Math.sin(age / 160) * 0.12);
+    ctx.fillStyle = "#d69c6a";
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.06, size * 0.32, size * 0.16, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(size * 0.28, -size * 0.04, size * 0.15, size * 0.14, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#8b5e3c";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.18, -size * 0.12, size * 0.07, size * 0.16, -0.45, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(size * 0.36, -size * 0.10, size * 0.07, size * 0.16, 0.45, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#d69c6a";
+    [-0.18, -0.05, 0.10, 0.24].forEach(ox => { ctx.fillRect(size * ox, size * 0.18, size * 0.07, size * 0.18); });
+    ctx.fillStyle = "#f7f2ef";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.33, -size * 0.01, size * 0.06, size * 0.05, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "#8b5e3c";
+    ctx.lineWidth = Math.max(3, size * 0.045);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.28, size * 0.02);
+    ctx.quadraticCurveTo(-size * 0.44, -size * 0.16, -size * 0.50, size * 0.02);
+    ctx.stroke();
+    ctx.fillStyle = "#e33b51";
+    ctx.fillRect(size * 0.20, size * 0.12, size * 0.18, size * 0.05);
+    ctx.fillStyle = "#ffd24d";
+    ctx.beginPath();
+    ctx.arc(size * 0.28, size * 0.145, size * 0.04, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#111827";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.31, -size * 0.08, size * 0.03, size * 0.04, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(size * 0.30, -size * 0.095, size * 0.012, size * 0.012, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawRoller() {
