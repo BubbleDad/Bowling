@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.4
-   * Fourth playable browser/PWA prototype: expanded rare special-pin animations, pin fade-outs, no synth background fallback, and text-box quote cleanup.
+   * Meowmoon Bowling v0.5
+   * Fifth playable browser/PWA prototype: more special pin and ball animations, slower cat paw animation, and stronger level-assist pacing.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -21,11 +21,12 @@
   const BALL_SPEED = 740; // CSS pixels per second; steady and not twitchy.
   const PIN_FADE_DELAY_MS = 220;
   const PIN_FADE_MS = 720;
-  const SPECIAL_MIN_LEVEL_GAP = 4;
-  const SPECIAL_LEVEL_CHANCE = 0.88;
-  const SPECIAL_HIT_CHANCE = 0.42;
-  const SPECIAL_LAST_PIN_CHANCE = 0.20;
-  const SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw"];
+  const MAX_ROLLS_PER_LEVEL = 10;
+  const SPECIAL_PINS_PER_LEVEL = 3;
+  const SPECIAL_BALLS_PER_LEVEL = 2;
+  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw", "treasure", "toytrain", "popcorn", "kite", "magicpaint", "flower"];
+  const BALL_SPECIAL_TYPES = ["comet", "rainbow", "yarn", "superbounce", "meteor", "giantbounce"];
+  const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
 
 
   const ROTATING_STATUS_TEXTS = [
@@ -80,10 +81,10 @@
     message: "Hi there, bowler! Tap anywhere to roll.",
     particles: [],
     nextBallSeed: 0,
-    specialCooldowns: { rocket: -99, pinata: -99, balloon: -99, firework: -99, jelly: -99, catpaw: -99 },
-    specialAvailableThisLevel: false,
-    specialTypePoolThisLevel: [],
-    specialUsedThisLevel: false
+    rollsThisLevel: 0,
+    specialBallMap: {},
+    remainingSpecialPins: 0,
+    bounceBursts: []
   };
 
   const messages = [
@@ -453,12 +454,43 @@
     game.phase = currentTitleAlpha(nowMs()) > 0.01 ? "title" : "playing";
     game.forceHitNext = false;
     game.particles = [];
-    game.specialUsedThisLevel = false;
-    game.specialTypePoolThisLevel = SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
-    game.specialAvailableThisLevel = game.specialTypePoolThisLevel.length > 0 && Math.random() < SPECIAL_LEVEL_CHANCE;
+    game.rollsThisLevel = 0;
+    game.specialBallMap = {};
+    game.remainingSpecialPins = 0;
+    game.bounceBursts = [];
     game.messageIndex = (game.level - 1) % messages.length;
     game.message = messages[game.messageIndex];
     generatePins();
+    assignSpecialPins();
+    assignSpecialBalls();
+  }
+
+  function shuffled(list) {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i -= 1) {
+      const j = randInt(0, i);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function assignSpecialPins() {
+    const candidates = shuffled(game.pins).slice(0, Math.min(SPECIAL_PINS_PER_LEVEL, game.pins.length));
+    const types = shuffled(PIN_SPECIAL_TYPES).slice(0, candidates.length);
+    candidates.forEach((pin, idx) => {
+      pin.specialType = types[idx] || PIN_SPECIAL_TYPES[idx % PIN_SPECIAL_TYPES.length];
+      pin.specialTriggered = false;
+    });
+    game.remainingSpecialPins = candidates.length;
+  }
+
+  function assignSpecialBalls() {
+    const rollChoices = shuffled(Array.from({ length: MAX_ROLLS_PER_LEVEL }, (_, i) => i + 1)).slice(0, SPECIAL_BALLS_PER_LEVEL).sort((a, b) => a - b);
+    const ballTypes = shuffled(BALL_SPECIAL_TYPES).slice(0, SPECIAL_BALLS_PER_LEVEL);
+    game.specialBallMap = {};
+    rollChoices.forEach((roll, idx) => {
+      game.specialBallMap[roll] = ballTypes[idx] || BALL_SPECIAL_TYPES[idx % BALL_SPECIAL_TYPES.length];
+    });
   }
 
   function generatePins() {
@@ -526,7 +558,9 @@
       fading: false,
       fadeStartAt: 0,
       removed: false,
-      rocket: null
+      rocket: null,
+      specialType: null,
+      specialTriggered: false
     };
   }
 
@@ -649,13 +683,17 @@
   }
 
   function fireBall(tap) {
-    const targetInfo = chooseAssistedTarget(tap);
+    const nextRoll = game.rollsThisLevel + 1;
+    const targetInfo = chooseAssistedTarget(tap, nextRoll);
     if (!targetInfo) return;
     game.pathPreview = targetInfo.path;
+    const specialType = game.specialBallMap[nextRoll] || null;
+    game.rollsThisLevel = nextRoll;
+    const ballRadius = specialType === "giantbounce" ? layout.ballR * 1.34 : layout.ballR;
     game.ball = {
       x: layout.rollerX,
       y: layout.rollerY - layout.ballR * 0.55,
-      r: layout.ballR,
+      r: ballRadius,
       path: targetInfo.path,
       segment: 0,
       distanceOnSegment: 0,
@@ -663,13 +701,18 @@
       guaranteed: targetInfo.guaranteed,
       spin: 0,
       missed: false,
-      colorSeed: game.nextBallSeed++
+      colorSeed: game.nextBallSeed++,
+      specialType,
+      trail: [],
+      bounceCount: 0,
+      squashUntil: 0,
+      launchedAt: nowMs()
     };
     game.phase = "rolling";
     audio.startRolling();
   }
 
-  function chooseAssistedTarget(tap) {
+  function chooseAssistedTarget(tap, nextRoll = game.rollsThisLevel + 1) {
     const start = { x: layout.rollerX, y: layout.rollerY - layout.ballR * 0.55 };
     const uprightPins = game.pins.filter(p => !p.fallen && !p.falling && !p.rocket && !p.removed);
     if (!uprightPins.length) return null;
@@ -684,9 +727,11 @@
         const targetCloseness = Math.hypot(tap.x - aimPoint.x, tap.y - aimPoint.y) / Math.max(320, view.h);
         const angleScore = angleDistance(rawAngle, opt.initialAngle);
         const nearEdgeBonus = (pin.x < view.w * 0.17 || pin.x > view.w * 0.83) && opt.bounce ? -0.04 : 0;
-        const guaranteedBonus = game.forceHitNext ? -0.65 : 0;
-        const score = angleScore + targetCloseness * 0.44 + (opt.bounce ? 0.055 : 0) + nearEdgeBonus + guaranteedBonus;
-        scored.push({ pin, path: opt.points, score, guaranteed: game.forceHitNext });
+        const guaranteedBonus = (game.forceHitNext || nextRoll >= MAX_ROLLS_PER_LEVEL) ? -0.85 : 0;
+        const clusterCount = uprightPins.filter(other => other !== pin && Math.hypot(other.x - pin.x, other.y - pin.y) < layout.pinH * 1.55).length;
+        const specialBonus = pin.specialType ? -0.16 : 0;
+        const score = angleScore + targetCloseness * 0.44 + (opt.bounce ? 0.055 : 0) + nearEdgeBonus + guaranteedBonus - clusterCount * 0.06 + specialBonus;
+        scored.push({ pin, path: opt.points, score, guaranteed: (game.forceHitNext || nextRoll >= MAX_ROLLS_PER_LEVEL) });
       }
     }
 
@@ -696,8 +741,8 @@
     // If the child clearly aims at empty sky and the previous roll was not a miss,
     // allow a gentle miss sometimes. The next roll is then forced to be a hit.
     const nearestPinDist = Math.min(...uprightPins.map(pin => Math.hypot(tap.x - pin.x, tap.y - pin.y)));
-    const emptySkyTap = nearestPinDist > layout.pinH * 2.7 && !game.forceHitNext;
-    if (emptySkyTap && Math.random() < 0.18) {
+    const emptySkyTap = nearestPinDist > layout.pinH * 2.7 && !game.forceHitNext && nextRoll < MAX_ROLLS_PER_LEVEL;
+    if (emptySkyTap && Math.random() < 0.10) {
       const missPath = missPathForTap(start, tap);
       return { pin: null, path: missPath, guaranteed: false };
     }
@@ -759,6 +804,9 @@
     if (!game.ball || game.phase !== "rolling") return;
     const ball = game.ball;
     ball.spin += dt * 7.5;
+    const currentTime = nowMs();
+    ball.trail.push({ x: ball.x, y: ball.y, at: currentTime });
+    if (ball.trail.length > 28) ball.trail.shift();
     let remaining = BALL_SPEED * dt;
 
     while (remaining > 0 && ball.segment < ball.path.length - 1) {
@@ -780,6 +828,11 @@
       }
 
       if (ball.distanceOnSegment >= segmentLength - 0.5) {
+        if (ball.segment + 1 < ball.path.length - 1) {
+          ball.bounceCount += 1;
+          ball.squashUntil = currentTime + 180;
+          if (ball.specialType === "superbounce") makeWallBounceBurst(b.x, b.y);
+        }
         ball.segment += 1;
         ball.distanceOnSegment = 0;
         ball.x = b.x;
@@ -789,8 +842,9 @@
 
     if (ball.segment >= ball.path.length - 1) {
       const target = ball.targetPinId ? game.pins.find(p => p.id === ball.targetPinId && !p.fallen && !p.falling) : null;
-      if (target && ball.guaranteed) {
-        resolveBallHit(target);
+      const fallback = game.pins.filter(p => !p.fallen && !p.falling && !p.rocket && !p.removed).sort((a,b)=>Math.hypot(ball.x-a.x,ball.y-a.y)-Math.hypot(ball.x-b.x,ball.y-b.y))[0] || null;
+      if ((target && ball.guaranteed) || (game.rollsThisLevel >= MAX_ROLLS_PER_LEVEL && fallback)) {
+        resolveBallHit(target || fallback);
       } else {
         resolveMiss();
       }
@@ -800,7 +854,7 @@
   function detectBallPinHit(ball) {
     for (const pin of game.pins) {
       if (pin.fallen || pin.falling || pin.rocket || pin.removed) continue;
-      const hitRadius = layout.ballR * 0.78 + layout.pinW * 0.62;
+      const hitRadius = ball.r * 0.78 + layout.pinW * 0.62;
       const targetPoint = { x: pin.x, y: pin.y + layout.pinH * 0.10 };
       if (Math.hypot(ball.x - targetPoint.x, ball.y - targetPoint.y) <= hitRadius) return pin;
     }
@@ -809,7 +863,9 @@
 
   function resolveBallHit(pin) {
     audio.stopRolling();
-    const knocked = knockPinsFrom(pin);
+    const ballSpecial = game.ball ? game.ball.specialType : null;
+    const forceClearAll = game.rollsThisLevel >= MAX_ROLLS_PER_LEVEL;
+    const knocked = knockPinsFrom(pin, ballSpecial, forceClearAll);
     const specialHit = knocked.some(p => p.rocket);
     game.ball = null;
     game.pathPreview = [];
@@ -819,6 +875,8 @@
     audio.hitPins(knocked.length);
     if (!specialHit) audio.pinFall(knocked.length);
     makeImpactParticles(pin.x, pin.y, knocked.length);
+    if (ballSpecial === "meteor") makeMeteorImpact(pin.x, pin.y);
+    if (ballSpecial === "giantbounce") makePinataBurst(pin.x, pin.y);
     const longestSpecial = knocked.reduce((m, p) => Math.max(m, p.rocket ? ((p.rocket.finishAt || (p.rocket.startedAt + p.rocket.duration)) - nowMs()) : 0), 0);
     game.resolvingUntil = nowMs() + (specialHit ? Math.max(700, longestSpecial + 160) : PIN_FADE_DELAY_MS + PIN_FADE_MS + 160);
   }
@@ -835,7 +893,8 @@
   function knockPinsFrom(firstPin) {
     const remainingBefore = remainingUprightCount();
     const knocked = [];
-    const queue = [{ pin: firstPin, depth: 0, power: 1 }];
+    const openingPower = ballSpecial === "giantbounce" ? 1.6 : ballSpecial === "meteor" ? 1.25 : 1;
+    const queue = [{ pin: firstPin, depth: 0, power: openingPower }];
     const seen = new Set();
     const current = nowMs();
 
@@ -844,10 +903,20 @@
       const pin = item.pin;
       if (!pin || seen.has(pin.id) || pin.fallen || pin.falling || pin.rocket || pin.removed) continue;
       seen.add(pin.id);
-      if (item.depth === 0 && shouldLaunchSpecialPin(pin)) {
-        launchSpecialPin(pin, current);
+      if (item.depth === 0 && pin.specialType && !pin.specialTriggered) {
+        launchSpecialPin(pin, current, pin.specialType);
+        pin.specialTriggered = true;
+        game.remainingSpecialPins = Math.max(0, game.remainingSpecialPins - 1);
         knocked.push(pin);
-        break;
+        if (ballSpecial === "giantbounce" || forceClearAll) {
+          const extraNeighbors = game.pins.filter(p => !p.fallen && !p.falling && !p.rocket && !p.removed && !seen.has(p.id))
+            .map(p => ({ pin: p, d: Math.hypot(p.x - pin.x, p.y - pin.y) }))
+            .filter(o => o.d < layout.pinH * 1.9)
+            .sort((a,b)=>a.d-b.d)
+            .slice(0, 2);
+          extraNeighbors.forEach(n => queue.push({ pin: n.pin, depth: 1, power: 0.95 }));
+        }
+        continue;
       }
       knockOnePin(pin, item.depth, item.power, current);
       knocked.push(pin);
@@ -859,42 +928,41 @@
         .sort((a, b) => a.d - b.d);
 
       for (const n of neighbors) {
-        const baseChance = item.depth === 0 ? 0.42 : 0.22;
-        const distanceFactor = clamp(1 - n.d / (layout.pinH * 1.55), 0, 1);
-        const chance = baseChance * (0.42 + distanceFactor) * item.power;
+        const baseChance = item.depth === 0 ? 0.72 : 0.46;
+        const distanceFactor = clamp(1 - n.d / (layout.pinH * 1.85), 0, 1);
+        const chance = clamp(baseChance * (0.52 + distanceFactor) * item.power, 0, 0.95);
         if (Math.random() < chance) {
-          queue.push({ pin: n.pin, depth: item.depth + 1, power: item.power * 0.67 });
+          queue.push({ pin: n.pin, depth: item.depth + 1, power: item.power * 0.80 });
         }
       }
     }
 
-    // Chain reactions that clear the whole level are intentionally rare.
-    if (remainingBefore > 3 && knocked.length >= remainingBefore && Math.random() > 0.10) {
-      const saveCount = randInt(1, Math.min(3, knocked.length - 1));
-      const saved = knocked.splice(knocked.length - saveCount, saveCount);
-      for (const pin of saved) restorePin(pin);
+    if (ballSpecial === "giantbounce") {
+      const extras = game.pins.filter(p => !p.fallen && !p.falling && !p.rocket && !p.removed && !seen.has(p.id))
+        .sort((a,b)=>Math.hypot(a.x-firstPin.x,a.y-firstPin.y)-Math.hypot(b.x-firstPin.x,b.y-firstPin.y)).slice(0,2);
+      extras.forEach(pin => { knockOnePin(pin, 1, 1.0, current); knocked.push(pin); seen.add(pin.id); });
+    }
+
+    if (forceClearAll) {
+      for (const pin of game.pins) {
+        if (seen.has(pin.id) || pin.fallen || pin.falling || pin.rocket || pin.removed) continue;
+        if (pin.specialType && !pin.specialTriggered) {
+          launchSpecialPin(pin, current, pin.specialType);
+          pin.specialTriggered = true;
+          game.remainingSpecialPins = Math.max(0, game.remainingSpecialPins - 1);
+          knocked.push(pin);
+        } else {
+          knockOnePin(pin, 1, 1.05, current);
+          knocked.push(pin);
+        }
+      }
     }
 
     return knocked;
   }
 
-  function shouldLaunchSpecialPin(pin) {
-    if (game.specialUsedThisLevel) return false;
-    if (!game.specialAvailableThisLevel) return false;
-    const pool = SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
-    if (!pool.length) return false;
-    const chance = remainingUprightCount() <= 1 ? SPECIAL_LAST_PIN_CHANCE : SPECIAL_HIT_CHANCE;
-    if (Math.random() >= chance) return false;
-    game.specialTypePoolThisLevel = pool;
-    return true;
-  }
-
-  function launchSpecialPin(pin, current) {
-    const pool = game.specialTypePoolThisLevel.length ? game.specialTypePoolThisLevel : SPECIAL_TYPES.filter(type => game.level - game.specialCooldowns[type] >= SPECIAL_MIN_LEVEL_GAP);
-    const type = pool[randInt(0, pool.length - 1)];
-    game.specialUsedThisLevel = true;
-    game.specialAvailableThisLevel = false;
-    game.specialCooldowns[type] = game.level;
+  function launchSpecialPin(pin, current, forcedType = null) {
+    const type = forcedType || pin.specialType || PIN_SPECIAL_TYPES[randInt(0, PIN_SPECIAL_TYPES.length - 1)];
     pin.falling = false;
     pin.fallen = true;
     pin.fading = false;
@@ -902,7 +970,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(1100, 1700) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100) };
     const duration = durationMap[type];
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -918,6 +986,8 @@
       balloonColor: ["#ff6fae", "#7bdfff", "#ffe36d", "#9d7bff", "#63e38c"][randInt(0,4)],
       jellyColor: ["#ff88c2", "#8ee0ff", "#a7ff7d", "#ffe36d", "#b59aff"][randInt(0,4)],
       pawSide: Math.random() < 0.5 ? -1 : 1,
+      petalColor: ["#ff7fb9", "#ffd75f", "#8ee0ff", "#c6a6ff", "#84e56d"][randInt(0,4)],
+      paintColor: ["#ff4d6d", "#ffaa33", "#41d6ff", "#8a5cff", "#5fd36a"][randInt(0,4)],
       exit: { x: exitX, y: exitY },
       path: [
         { x: pin.x, y: pin.y },
@@ -944,6 +1014,18 @@
     } else if (type === "catpaw") {
       audio.catPawSwipe();
       pin.rocket.exit = { x: exitSide < 0 ? -layout.pinH * 1.5 : view.w + layout.pinH * 1.5, y: pin.y + rand(-layout.pinH * 0.2, layout.pinH * 0.15) };
+    } else if (type === "treasure") {
+      audio.pinataBurst();
+    } else if (type === "toytrain") {
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.8, y: pin.y + rand(-layout.pinH * 0.2, layout.pinH * 0.2) }, { x: layout.wallRight - layout.pinH * 0.8, y: pin.y + rand(-layout.pinH * 0.25, layout.pinH * 0.25) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.3, layout.pinH * 0.3) }];
+    } else if (type === "popcorn") {
+      audio.balloonPop();
+    } else if (type === "kite") {
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: pin.x + rand(-layout.pinH * 0.8, layout.pinH * 0.8), y: pin.y - layout.pinH * 1.6 }, { x: pin.x + rand(-layout.pinH * 1.2, layout.pinH * 1.2), y: layout.playTop - layout.pinH * 0.1 }, { x: pin.x + rand(-layout.pinH * 1.4, layout.pinH * 1.4), y: -layout.pinH * 1.0 }];
+    } else if (type === "magicpaint") {
+      audio.fireworkBurst();
+    } else if (type === "flower") {
+      audio.jellyWobble();
     }
   }
 
@@ -1013,7 +1095,7 @@
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (s.type === "rocket" || s.type === "firework" || s.type === "balloon") {
+    if (["rocket", "firework", "balloon", "toytrain", "kite"].includes(s.type)) {
       const path = s.path;
       const scaled = t * (path.length - 1);
       const segment = Math.min(path.length - 2, Math.floor(scaled));
@@ -1021,14 +1103,15 @@
       const eased = 0.5 - Math.cos(localT * Math.PI) * 0.5;
       const a = path[segment];
       const b = path[segment + 1];
-      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : layout.pinH * 0.035;
+      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : s.type === "kite" ? layout.pinH * 0.12 : layout.pinH * 0.035;
       pin.x = lerp(a.x, b.x, eased) + Math.sin(age / 120 + (s.variant % 7)) * wobbleAmp;
-      pin.y = lerp(a.y, b.y, eased) + (s.type === "balloon" ? Math.cos(age / 180) * layout.pinH * 0.06 : Math.cos(age / 120) * layout.pinH * 0.025);
-      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : 0.18);
-      if ((s.type === "rocket" || s.type === "firework") && Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
+      pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 140) * (s.type === "toytrain" ? 3 : layout.pinH * 0.025);
+      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : s.type === "kite" ? 0.35 : 0.18);
+      if (["rocket", "firework", "meteor"].includes(s.type) && Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
       if (s.type === "rocket" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.rocketBurst(); makePinataBurst(pin.x, pin.y); }
       if (s.type === "firework" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.fireworkBurst(); makeFireworkBurst(pin.x, pin.y); }
       if (s.type === "balloon" && !s.popped && current >= s.popAt) { s.popped = true; audio.balloonPop(); makeBalloonPop(pin.x, pin.y, s.balloonColor); }
+      if (s.type === "toytrain" && Math.random() < 0.22) makeTrainPuff(pin.x - layout.pinW * 0.4, pin.y + layout.pinH * 0.2);
       if (t >= 1) {
         pin.removed = true;
         if ((s.type === "rocket" || s.type === "firework") && !game.pins.some(p => p !== pin && p.rocket && !p.removed && (p.rocket.type === "rocket" || p.rocket.type === "firework"))) audio.stopRocketFlight();
@@ -1051,13 +1134,40 @@
     }
 
     if (s.type === "catpaw") {
-      const impactT = clamp((current - s.swipeAt) / (s.duration * 0.28), 0, 1);
+      const impactT = clamp((current - s.swipeAt) / (s.duration * 0.46), 0, 1);
       if (!s.pawDone && current >= s.swipeAt) { s.pawDone = true; audio.catPawBop(); makeCatPawBurst(pin.x, pin.y); }
       if (s.pawDone) {
-        pin.x = lerp(pin.x, s.exit.x, impactT * 0.18);
-        pin.y = lerp(pin.y, s.exit.y, impactT * 0.18);
-        pin.angle += dt * (s.pawSide * 7);
+        pin.x = lerp(pin.x, s.exit.x, impactT * 0.12);
+        pin.y = lerp(pin.y, s.exit.y, impactT * 0.12);
+        pin.angle += dt * (s.pawSide * 4.5);
       }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "treasure") {
+      pin.angle = Math.sin(age / 90) * 0.08;
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makeTreasureBurst(pin.x, pin.y); }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "popcorn") {
+      pin.angle = Math.sin(age / 70) * 0.12;
+      if (!s.popped && current >= s.popAt) { s.popped = true; makePopcornBurst(pin.x, pin.y); }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "magicpaint") {
+      pin.angle = Math.sin(age / 80) * 0.18;
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makePaintBurst(pin.x, pin.y, s.paintColor); }
+      if (t >= 1) pin.removed = true;
+      return;
+    }
+
+    if (s.type === "flower") {
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makeFlowerBurst(pin.x, pin.y, s.petalColor); }
       if (t >= 1) pin.removed = true;
       return;
     }
@@ -1153,6 +1263,54 @@
       const angle = rand(-Math.PI * 0.8, Math.PI * 0.2);
       const speed = rand(70, 220);
       game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(20, 110), size: rand(5, 12), color: colors[randInt(0, colors.length - 1)], shape: Math.random() < 0.35 ? "paw" : "star", spin: rand(-5, 5), startedAt: nowMs(), duration: rand(650, 1400) });
+    }
+  }
+
+  function makeTreasureBurst(x, y) {
+    const colors = ["#ffe36d", "#fff7a8", "#ffb739", "#7bdfff", "#ff9acb"];
+    for (let i = 0; i < 68; i += 1) {
+      const angle = rand(0, TAU); const speed = rand(60, 240);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(10, 120), size: rand(4, 13), color: colors[randInt(0, colors.length - 1)], shape: ["star","treat","toy"][randInt(0,2)], spin: rand(-6,6), startedAt: nowMs(), duration: rand(900, 1800) });
+    }
+  }
+
+  function makeTrainPuff(x, y) {
+    game.particles.push({ x, y, vx: rand(-20, 20), vy: rand(-40, -5), size: rand(7, 14), color: "rgba(255,255,255,0.8)", shape: "bubble", spin: 0, startedAt: nowMs(), duration: rand(450, 850) });
+  }
+
+  function makePopcornBurst(x, y) {
+    for (let i = 0; i < 54; i += 1) {
+      const angle = rand(0, TAU); const speed = rand(50, 220);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(0, 120), size: rand(5, 11), color: Math.random() < 0.72 ? "#fff8d7" : "#ffcc55", shape: Math.random() < 0.7 ? "bubble" : "star", spin: rand(-4,4), startedAt: nowMs(), duration: rand(700, 1400) });
+    }
+  }
+
+  function makePaintBurst(x, y, color) {
+    for (let i = 0; i < 70; i += 1) {
+      const angle = rand(0, TAU); const speed = rand(60, 250);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(0, 120), size: rand(4, 12), color, shape: Math.random() < 0.65 ? "confetti" : "bubble", spin: rand(-8,8), startedAt: nowMs(), duration: rand(800, 1600) });
+    }
+  }
+
+  function makeFlowerBurst(x, y, color) {
+    for (let i = 0; i < 48; i += 1) {
+      const angle = rand(0, TAU); const speed = rand(40, 170);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(0, 100), size: rand(5, 12), color, shape: Math.random() < 0.55 ? "heart" : "star", spin: rand(-5,5), startedAt: nowMs(), duration: rand(900, 1800) });
+    }
+  }
+
+  function makeWallBounceBurst(x, y) {
+    for (let i = 0; i < 28; i += 1) {
+      const angle = rand(-Math.PI * 0.55, Math.PI * 0.55);
+      const speed = rand(50, 170);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed * (x < view.w * 0.5 ? 1 : -1), vy: Math.sin(angle) * speed, size: rand(4, 10), color: ["#ffffff","#ffe36d","#7bdfff"][randInt(0,2)], shape: Math.random() < 0.5 ? "star" : "spark", spin: rand(-8,8), startedAt: nowMs(), duration: rand(400, 900) });
+    }
+  }
+
+  function makeMeteorImpact(x, y) {
+    for (let i = 0; i < 58; i += 1) {
+      const angle = rand(0, TAU); const speed = rand(80, 260);
+      game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(0, 140), size: rand(5, 12), color: ["#fff7a8","#ffb739","#ff7a31","#ef3340"][randInt(0,3)], shape: Math.random() < 0.6 ? "spark" : "star", spin: rand(-9,9), startedAt: nowMs(), duration: rand(700, 1400) });
     }
   }
 
@@ -1411,6 +1569,12 @@
     if (type === "firework") return drawFireworkPin(pin, current);
     if (type === "jelly") return drawJellyPin(pin, current);
     if (type === "catpaw") return drawCatPawPin(pin, current);
+    if (type === "treasure") return drawTreasurePin(pin, current);
+    if (type === "toytrain") return drawToyTrainPin(pin, current);
+    if (type === "popcorn") return drawPopcornPin(pin, current);
+    if (type === "kite") return drawKitePin(pin, current);
+    if (type === "magicpaint") return drawMagicPaintPin(pin, current);
+    if (type === "flower") return drawFlowerPin(pin, current);
     return drawRocketPin(pin, current);
   }
 
@@ -1548,6 +1712,64 @@
     ctx.save(); ctx.translate(pawX, pawY); ctx.rotate((s.pawSide < 0 ? 1 : -1) * (0.18 + pawProgress * 0.3)); const size = layout.pinH * 0.72; ctx.fillStyle = "#ffd17a"; ctx.strokeStyle = "#b74f18"; ctx.lineWidth = Math.max(2, size * 0.05); ctx.beginPath(); ctx.ellipse(0, 0, size * 0.42, size * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke(); [[-0.24,-0.36],[-0.06,-0.46],[0.12,-0.46],[0.30,-0.35]].forEach(([ox,oy])=>{ctx.beginPath(); ctx.ellipse(size*ox,size*oy,size*0.11,size*0.13,0,0,TAU); ctx.fill(); ctx.stroke();}); ctx.restore();
   }
 
+  function drawTreasurePin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt; const lid = s.burstDone ? 0.9 : clamp(age / s.duration * 1.7, 0, 0.55);
+    const w = layout.pinW * 1.5, h = layout.pinH * 0.65;
+    ctx.save(); ctx.translate(pin.x, pin.y + layout.pinH * 0.15); ctx.rotate(Math.sin(age / 90) * 0.05);
+    ctx.fillStyle = "#a5612f"; ctx.strokeStyle = "#6e3f1d"; ctx.lineWidth = 2;
+    roundRect(ctx, -w * 0.5, -h * 0.2, w, h * 0.62, 6); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(0, -h * 0.18); ctx.rotate(-lid); roundRect(ctx, -w * 0.52, -h * 0.16, w * 1.04, h * 0.30, 6); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = "#ffe36d"; ctx.fillRect(-w * 0.08, h * 0.01, w * 0.16, h * 0.16); ctx.restore();
+  }
+
+  function drawToyTrainPin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt; const size = layout.pinH * 0.56;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 120) * 0.06);
+    ctx.fillStyle = "#ef3340"; roundRect(ctx, -size * 0.65, -size * 0.14, size * 0.9, size * 0.42, size * 0.12); ctx.fill();
+    ctx.fillStyle = "#236dcc"; roundRect(ctx, -size * 0.10, -size * 0.34, size * 0.42, size * 0.30, size * 0.10); ctx.fill();
+    ctx.fillStyle = "#ffe36d"; ctx.fillRect(-size * 0.50, -size * 0.06, size * 0.16, size * 0.11);
+    ctx.fillStyle = "#333"; [-0.42,-0.05,0.28].forEach((ox)=>{ctx.beginPath(); ctx.arc(size*ox, size*0.34, size*0.12, 0, TAU); ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawPopcornPin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt; const pop = s.popped ? 1 : clamp(age / s.popAt, 0.1, 1);
+    ctx.save(); ctx.translate(pin.x, pin.y);
+    ctx.fillStyle = "#ff7070"; roundRect(ctx, -layout.pinW * 0.55, 0, layout.pinW * 1.1, layout.pinH * 0.62, 6); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; [-0.25, 0, 0.25].forEach(off=>{ctx.beginPath(); ctx.moveTo(layout.pinW*off, 3); ctx.lineTo(layout.pinW*off, layout.pinH*0.55); ctx.stroke();});
+    ctx.fillStyle = "#fff8d7"; [-0.35,-0.12,0.12,0.34].forEach((ox,i)=>{ctx.beginPath(); ctx.arc(layout.pinW*ox, -layout.pinH*(0.05+0.06*Math.sin(age/120+i)), layout.pinW*(0.24 + 0.02*Math.sin(age/90+i))*pop, 0, TAU); ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawKitePin(pin, current) {
+    const age = current - pin.rocket.startedAt;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 140) * 0.2);
+    ctx.fillStyle = pin.rocket.balloonColor; ctx.beginPath(); ctx.moveTo(0, -layout.pinH*0.42); ctx.lineTo(layout.pinW*0.55, 0); ctx.lineTo(0, layout.pinH*0.34); ctx.lineTo(-layout.pinW*0.55, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(60,80,120,0.5)"; ctx.beginPath(); ctx.moveTo(0, layout.pinH*0.34); ctx.lineTo(0, layout.pinH*0.95); ctx.stroke();
+    for (let i=0;i<4;i+=1){ ctx.fillStyle=["#ffe36d","#ff9acb","#7bdfff","#63e38c"][i%4]; ctx.beginPath(); ctx.moveTo(0, layout.pinH*(0.46+i*0.12)); ctx.lineTo(layout.pinW*0.14, layout.pinH*(0.54+i*0.12)); ctx.lineTo(0, layout.pinH*(0.62+i*0.12)); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+  }
+
+  function drawMagicPaintPin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(-0.8 + Math.sin(age / 90) * 0.16);
+    ctx.fillStyle = "#c28b42"; roundRect(ctx, -layout.pinW*0.12, -layout.pinH*0.52, layout.pinW*0.24, layout.pinH*0.88, 4); ctx.fill();
+    ctx.fillStyle = s.paintColor; ctx.beginPath(); ctx.ellipse(0, -layout.pinH*0.56, layout.pinW*0.34, layout.pinH*0.14, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (s.burstDone) {
+      ctx.save(); ctx.strokeStyle = s.paintColor; ctx.globalAlpha = 0.55; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(pin.x + layout.pinW*0.15, pin.y - layout.pinH*0.25, layout.pinH*0.42, Math.PI*0.8, Math.PI*1.65); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  function drawFlowerPin(pin, current) {
+    const s = pin.rocket; const age = current - s.startedAt; const bloom = clamp(age / (s.duration * 0.55), 0.2, 1);
+    ctx.save(); ctx.translate(pin.x, pin.y + layout.pinH*0.08);
+    ctx.strokeStyle = "#4cae57"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, layout.pinH*0.52); ctx.quadraticCurveTo(-4, 10, 0, -layout.pinH*0.1); ctx.stroke();
+    ctx.fillStyle = s.petalColor; for (let i=0;i<6;i+=1){ ctx.save(); ctx.rotate(i*TAU/6 + age/1000); ctx.beginPath(); ctx.ellipse(0, -layout.pinH*0.18*bloom, layout.pinW*0.25*bloom, layout.pinH*0.24*bloom, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+    ctx.fillStyle = "#ffe36d"; ctx.beginPath(); ctx.arc(0, 0, layout.pinW*0.18*bloom, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
   function drawRoller() {
     const x = layout.rollerX;
     const y = layout.rollerY;
@@ -1622,9 +1844,39 @@
     ctx.restore();
   }
 
+  function drawBallTrail(ball) {
+    if (!ball.trail || ball.trail.length < 2) return;
+    const points = ball.trail;
+    if (ball.specialType === "rainbow") {
+      const colors = ["#ff4d6d", "#ffaa33", "#ffe36d", "#63e38c", "#41d6ff", "#8a5cff"];
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.save(); ctx.strokeStyle = colors[i % colors.length]; ctx.globalAlpha = i / points.length * 0.7; ctx.lineWidth = 4 + (i / points.length) * 4; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(points[i-1].x, points[i-1].y); ctx.lineTo(points[i].x, points[i].y); ctx.stroke(); ctx.restore();
+      }
+    } else if (ball.specialType === "yarn") {
+      ctx.save(); ctx.strokeStyle = "#ff8ab3"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.beginPath();
+      points.forEach((pt, i) => { const off = Math.sin(i * 0.9 + ball.spin) * 6; if (i===0) ctx.moveTo(pt.x, pt.y); else ctx.quadraticCurveTo((points[i-1].x+pt.x)/2 + off, (points[i-1].y+pt.y)/2 - off, pt.x, pt.y); });
+      ctx.stroke(); ctx.restore();
+    } else if (ball.specialType === "comet" || ball.specialType === "meteor") {
+      const colors = ball.specialType === "meteor" ? ["rgba(239,51,64,0.05)","rgba(255,122,49,0.18)","rgba(255,227,109,0.50)"] : ["rgba(255,255,255,0.04)","rgba(123,223,255,0.18)","rgba(255,255,255,0.45)"];
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.save(); ctx.strokeStyle = colors[Math.min(colors.length - 1, Math.floor(i / Math.max(1, points.length / colors.length)))]; ctx.globalAlpha = i / points.length; ctx.lineWidth = 3 + (i / points.length) * 10; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(points[i-1].x, points[i-1].y); ctx.lineTo(points[i].x, points[i].y); ctx.stroke(); ctx.restore();
+      }
+    } else if (ball.specialType === "superbounce") {
+      ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.42)"; ctx.lineWidth = 3; ctx.setLineDash([6, 8]); ctx.beginPath(); points.forEach((pt, i) => { if (i===0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); }); ctx.stroke(); ctx.restore();
+    } else if (ball.specialType === "giantbounce") {
+      ctx.save(); ctx.strokeStyle = "rgba(255,227,109,0.35)"; ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.beginPath(); points.forEach((pt, i) => { if (i===0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); }); ctx.stroke(); ctx.restore();
+    }
+  }
+
   function drawBall() {
     if (!game.ball) return;
+    drawBallTrail(game.ball);
+    const squash = game.ball.squashUntil > nowMs() ? 1 + (game.ball.specialType === "superbounce" ? 0.18 : 0.08) : 1;
+    ctx.save();
+    if (game.ball.specialType === "superbounce" && game.ball.squashUntil > nowMs()) { ctx.translate(game.ball.x, game.ball.y); ctx.scale(1.18, 0.84); ctx.translate(-game.ball.x, -game.ball.y); }
+    if (game.ball.specialType === "giantbounce") { ctx.globalAlpha = 0.22; ctx.fillStyle = "#ffe36d"; ctx.beginPath(); ctx.arc(game.ball.x, game.ball.y, game.ball.r * 1.28 + Math.sin(game.ball.spin * 1.5) * 3, 0, TAU); ctx.fill(); }
     drawLoadedBall(game.ball.x, game.ball.y, game.ball.r, game.ball.spin, game.ball.colorSeed);
+    ctx.restore();
   }
 
   function drawCat() {
