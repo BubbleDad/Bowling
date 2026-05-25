@@ -1,4 +1,4 @@
-Meowmoon Bowling v0.5
+Meowmoon Bowling v0.5.1
 Fifth playable iteration
 
 How to run locally
@@ -7,6 +7,12 @@ How to run locally
 3. Tap anywhere on the screen to roll the ball, except the Meowmoon mascot.
 4. Long-press the Meowmoon mascot for about 3 seconds to pause.
 5. Tap anywhere while paused to resume.
+
+
+Hotfix in v0.5.1
+- Fixed a runtime error that occurred at the moment the ball contacted a pin.
+- The error was caused by a function signature mismatch in the v0.5 hit-resolution path.
+- The fix restores pin-hit resolution, special pin animation, pin fade/removal, and subsequent player actions.
 
 Changes from v0.4
 - Added six more special pin animations: Treasure Chest, Toy Train, Popcorn, Kite, Magic Paint, and Flower Bloom.
@@ -35,7 +41,7 @@ Audio
 - Rolling, impact, and special-animation sounds remain generated placeholders.
 - The prior background synth fallback remains removed.
 
-Known v0.5 limitations
+Known v0.5.1 limitations
 - The special-animation art is still canvas-drawn rather than sprite-based.
 - Special ball and pin behaviors are primarily visual reward events rather than full physics power-up systems.
 - This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.

@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.5
-   * Fifth playable browser/PWA prototype: more special pin and ball animations, slower cat paw animation, and stronger level-assist pacing.
+   * Meowmoon Bowling v0.5.1
+   * Fifth playable browser/PWA prototype hotfix: fixes contact-time runtime lock while preserving special pin and ball animations.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -890,7 +890,7 @@
     game.message = "Good try!\nThe next roll will help.";
   }
 
-  function knockPinsFrom(firstPin) {
+  function knockPinsFrom(firstPin, ballSpecial = null, forceClearAll = false) {
     const remainingBefore = remainingUprightCount();
     const knocked = [];
     const openingPower = ballSpecial === "giantbounce" ? 1.6 : ballSpecial === "meteor" ? 1.25 : 1;
