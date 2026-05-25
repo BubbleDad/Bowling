@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.9
-   * Ninth playable browser/PWA prototype: revises selected special pin animations and removes treasure chest, fish, and penguin from the active pool.
+   * Meowmoon Bowling v1.0.1
+   * Tenth playable browser/PWA prototype hotfix: guarantees Neon Arcade Maze levels on a predictable cadence for testing.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -28,6 +28,9 @@
   const BALL_SPECIAL_TYPES = [];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
   const SFX_GAIN = 4.1;
+  const MAZE_LEVEL_INTERVAL = 4;
+  const MAZE_PATH_PIN_COUNT_RANGE = [5, 8];
+  const MAZE_FINAL_PIN_COUNT_RANGE = [5, 8];
 
 
   const ROTATING_STATUS_TEXTS = [
@@ -65,12 +68,14 @@
 
   const game = {
     level: 0,
+    levelKind: "regular",
+    lastLevelWasMaze: false,
     pins: [],
     ball: null,
     pathPreview: [],
     titleStartedAt: performance.now(),
     introDismissed: false,
-    phase: "title", // title, playing, rolling, resolving, reward, paused
+    phase: "title", // title, mazeintro, playing, rolling, resolving, reward, paused
     previousPhase: "playing",
     rewardStartedAt: 0,
     nextLevelAt: 0,
@@ -87,7 +92,10 @@
     specialBallMap: {},
     remainingSpecialPins: 0,
     bounceBursts: [],
-    pinSpecialQueue: []
+    pinSpecialQueue: [],
+    maze: null,
+    mazeFinaleTriggered: false,
+    rewardLines: ["MEOW!"]
   };
 
   const messages = [
@@ -634,7 +642,10 @@
     game.pins = [];
     game.ball = null;
     game.pathPreview = [];
-    game.phase = game.level === 1 && !game.introDismissed ? "title" : "playing";
+    game.maze = null;
+    game.mazeFinaleTriggered = false;
+    game.levelKind = decideMazeLevel() ? "maze" : "regular";
+    game.phase = game.level === 1 && !game.introDismissed ? "title" : (game.levelKind === "maze" ? "mazeintro" : "playing");
     game.forceHitNext = false;
     game.particles = [];
     game.rollsThisLevel = 0;
@@ -643,11 +654,23 @@
     game.bounceBursts = [];
     game.pinSpecialQueue = shuffled(PIN_SPECIAL_TYPES);
     game.messageIndex = (game.level - 1) % messages.length;
-    game.message = messages[game.messageIndex];
+    game.message = game.levelKind === "maze" ? "Maze level! Tap anywhere to roll." : messages[game.messageIndex];
+    game.rewardLines = ["MEOW!"];
     if (game.level === 1 && !game.introDismissed) game.titleStartedAt = nowMs();
-    generatePins();
+    if (game.levelKind === "maze") generateMazeLevel();
+    else generatePins();
     assignSpecialPins();
     assignSpecialBalls();
+    game.lastLevelWasMaze = game.levelKind === "maze";
+  }
+
+  function decideMazeLevel() {
+    if (game.level <= 0) return false;
+    if (game.level === 1 && !game.introDismissed) return false;
+    if (game.lastLevelWasMaze) return false;
+    // v1.0.1 hotfix: make maze levels predictable enough for review.
+    // A maze level is guaranteed on every fourth level: 4, 8, 12, etc.
+    return game.level % MAZE_LEVEL_INTERVAL === 0;
   }
 
   function shuffled(list) {
@@ -674,6 +697,97 @@
 
   function assignSpecialBalls() {
     game.specialBallMap = {};
+  }
+
+  function generateMazeLevel() {
+    const start = { x: layout.rollerX, y: layout.rollerY - layout.ballR * 0.55 };
+    const left = layout.wallLeft + layout.pinH * 0.35;
+    const right = layout.wallRight - layout.pinH * 0.35;
+    const top = layout.playTop + layout.pinH * 0.10;
+    const bottom = layout.playBottom - layout.pinH * 0.18;
+    const laneCount = randInt(5, 6);
+    const rowCount = randInt(5, 6);
+    const laneXs = [];
+    for (let i = 0; i < laneCount; i += 1) {
+      laneXs.push(lerp(left, right, i / (laneCount - 1)) + rand(-layout.pinW * 0.55, layout.pinW * 0.55));
+    }
+    const rowYs = [];
+    for (let i = 0; i < rowCount; i += 1) {
+      rowYs.push(lerp(bottom, top, i / (rowCount - 1)) + rand(-layout.pinH * 0.08, layout.pinH * 0.08));
+    }
+    const centerLane = laneXs.reduce((best, x, idx) => Math.abs(x - start.x) < Math.abs(laneXs[best] - start.x) ? idx : best, 0);
+    let col = centerLane;
+    const route = [start, { x: laneXs[col], y: start.y - layout.ballR * 0.85 }, { x: laneXs[col], y: rowYs[0] }];
+    for (let r = 1; r < rowYs.length; r += 1) {
+      let nextCol = clamp(col + randInt(-2, 2), 0, laneXs.length - 1);
+      if (nextCol === col) nextCol = clamp(col + (Math.random() < 0.5 ? -1 : 1), 0, laneXs.length - 1);
+      route.push({ x: laneXs[nextCol], y: rowYs[r - 1] });
+      route.push({ x: laneXs[nextCol], y: rowYs[r] });
+      col = nextCol;
+    }
+    const exit = { x: laneXs[col], y: top - layout.pinH * 0.10 };
+    route.push(exit);
+
+    const branches = [];
+    for (let i = 1; i < route.length - 1; i += 2) {
+      const p = route[i];
+      const horizontal = i + 1 < route.length && Math.abs(route[i + 1].x - p.x) > Math.abs(route[i + 1].y - p.y);
+      if (!horizontal) continue;
+      if (Math.random() < 0.72) {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const endX = clamp(p.x + dir * rand(layout.pinH * 0.7, layout.pinH * 1.6), left, right);
+        branches.push([{ x: p.x, y: p.y }, { x: endX, y: p.y }]);
+      }
+    }
+
+    game.maze = { path: route, branches, start, exit };
+
+    const pathCount = randInt(MAZE_PATH_PIN_COUNT_RANGE[0], MAZE_PATH_PIN_COUNT_RANGE[1]);
+    const finalCount = randInt(MAZE_FINAL_PIN_COUNT_RANGE[0], MAZE_FINAL_PIN_COUNT_RANGE[1]);
+    const pathLen = polylineLength(route);
+    const usedPoints = [];
+
+    for (let i = 0; i < pathCount; i += 1) {
+      const dist = lerp(pathLen * 0.16, pathLen * 0.78, (i + rand(0.12, 0.88)) / pathCount);
+      const pt = pointAlongPolyline(route, dist);
+      const pin = createPin(pt.x + rand(-layout.pinW * 0.10, layout.pinW * 0.10), pt.y + rand(-layout.pinW * 0.10, layout.pinW * 0.10), game.pins.length);
+      pin.mazePin = true;
+      pin.mazeFinalCluster = false;
+      usedPoints.push({ x: pin.x, y: pin.y });
+      game.pins.push(pin);
+    }
+
+    for (let i = 0; i < finalCount; i += 1) {
+      const ang = (i / finalCount) * TAU + rand(-0.14, 0.14);
+      const ring = i < Math.ceil(finalCount / 2) ? layout.pinH * 0.28 : layout.pinH * 0.50;
+      const px = exit.x + Math.cos(ang) * ring + rand(-layout.pinW * 0.18, layout.pinW * 0.18);
+      const py = exit.y + layout.pinH * 0.48 + Math.sin(ang) * ring * 0.72 + rand(-layout.pinW * 0.18, layout.pinW * 0.18);
+      const pin = createPin(clamp(px, left, right), clamp(py, top, bottom), game.pins.length);
+      pin.mazePin = true;
+      pin.mazeFinalCluster = true;
+      game.pins.push(pin);
+    }
+  }
+
+  function polylineLength(points) {
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i += 1) total += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+    return total;
+  }
+
+  function pointAlongPolyline(points, dist) {
+    let remain = dist;
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const a = points[i];
+      const b = points[i + 1];
+      const seg = Math.hypot(b.x - a.x, b.y - a.y);
+      if (remain <= seg) {
+        const t = seg <= 0.001 ? 0 : remain / seg;
+        return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) };
+      }
+      remain -= seg;
+    }
+    return points[points.length - 1];
   }
 
   function generatePins() {
@@ -783,6 +897,12 @@
       return;
     }
 
+    if (game.phase === "mazeintro") {
+      audio.start();
+      fireBall(p);
+      return;
+    }
+
     if (game.phase !== "playing" || game.ball) return;
 
     audio.start();
@@ -871,6 +991,34 @@
   }
 
   function fireBall(tap) {
+    if (game.levelKind === "maze" && game.maze) {
+      game.pathPreview = [];
+      game.rollsThisLevel = 1;
+      const ballRadius = layout.ballR;
+      game.ball = {
+        x: game.maze.start.x,
+        y: game.maze.start.y,
+        r: ballRadius,
+        path: game.maze.path,
+        segment: 0,
+        distanceOnSegment: 0,
+        targetPinId: null,
+        guaranteed: true,
+        spin: 0,
+        missed: false,
+        colorSeed: game.nextBallSeed++,
+        specialType: null,
+        trail: [],
+        bounceCount: 0,
+        squashUntil: 0,
+        launchedAt: nowMs(),
+        maze: true
+      };
+      game.phase = "rolling";
+      audio.startRolling();
+      return;
+    }
+
     const nextRoll = game.rollsThisLevel + 1;
     const targetInfo = chooseAssistedTarget(tap, nextRoll);
     if (!targetInfo) return;
@@ -982,10 +1130,98 @@
   function update(current) {
     if (game.phase === "paused") return;
     const dt = clamp((current - lastFrame) / 1000, 0, 0.035);
-    updateBall(dt);
+    if (game.levelKind === "maze") updateMazeBall(dt);
+    else updateBall(dt);
     updatePins(current, dt);
     updateParticles(current, dt);
     updateReward(current);
+  }
+
+  function updateMazeBall(dt) {
+    if (!game.ball || game.phase !== "rolling" || game.levelKind !== "maze") return;
+    const ball = game.ball;
+    ball.spin += dt * 7.5;
+    const currentTime = nowMs();
+    ball.trail.push({ x: ball.x, y: ball.y, at: currentTime });
+    if (ball.trail.length > 32) ball.trail.shift();
+    let remaining = BALL_SPEED * dt;
+
+    while (remaining > 0 && ball.segment < ball.path.length - 1) {
+      const a = ball.path[ball.segment];
+      const b = ball.path[ball.segment + 1];
+      const segmentLength = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+      const left = segmentLength - ball.distanceOnSegment;
+      const step = Math.min(left, remaining);
+      ball.distanceOnSegment += step;
+      remaining -= step;
+      const t = ball.distanceOnSegment / segmentLength;
+      ball.x = lerp(a.x, b.x, t);
+      ball.y = lerp(a.y, b.y, t);
+
+      const hitPin = detectMazePathPinHit(ball);
+      if (hitPin) triggerMazePinHit(hitPin);
+
+      if (ball.distanceOnSegment >= segmentLength - 0.5) {
+        ball.segment += 1;
+        ball.distanceOnSegment = 0;
+        ball.x = b.x;
+        ball.y = b.y;
+      }
+    }
+
+    if (ball.segment >= ball.path.length - 1 && !game.mazeFinaleTriggered) triggerMazeFinale();
+  }
+
+  function detectMazePathPinHit(ball) {
+    for (const pin of game.pins) {
+      if (pin.mazeFinalCluster || pin.fallen || pin.falling || pin.rocket || pin.removed) continue;
+      const hitRadius = ball.r * 0.76 + layout.pinW * 0.60;
+      if (Math.hypot(ball.x - pin.x, ball.y - pin.y) <= hitRadius) return pin;
+    }
+    return null;
+  }
+
+  function triggerMazePinHit(pin) {
+    const current = nowMs();
+    if (pin.specialType && !pin.specialTriggered) {
+      launchSpecialPin(pin, current, pin.specialType);
+      pin.specialTriggered = true;
+      game.remainingSpecialPins = Math.max(0, game.remainingSpecialPins - 1);
+      audio.hitPins(1);
+      makeImpactParticles(pin.x, pin.y, 1);
+    } else if (!pin.fallen && !pin.falling && !pin.removed) {
+      knockOnePin(pin, 0, 1, current);
+      audio.hitPins(1);
+      audio.pinFall(1);
+      makeImpactParticles(pin.x, pin.y, 1);
+    }
+  }
+
+  function triggerMazeFinale() {
+    game.mazeFinaleTriggered = true;
+    const current = nowMs();
+    const finalePins = game.pins.filter(pin => !pin.removed && !pin.rocket && !pin.fallen && !pin.falling);
+    finalePins.forEach(pin => {
+      if (pin.specialType && !pin.specialTriggered) {
+        launchSpecialPin(pin, current, pin.specialType);
+        pin.specialTriggered = true;
+        game.remainingSpecialPins = Math.max(0, game.remainingSpecialPins - 1);
+      } else {
+        knockOnePin(pin, 0, 1, current);
+      }
+    });
+    const clusterCount = finalePins.filter(pin => pin.mazeFinalCluster).length;
+    if (game.maze && game.maze.exit) makeImpactParticles(game.maze.exit.x, game.maze.exit.y + layout.pinH * 0.45, Math.max(4, clusterCount || finalePins.length));
+    audio.stopRolling();
+    if (finalePins.length) audio.hitPins(finalePins.length);
+    game.ball = null;
+    game.phase = "resolving";
+    game.resolvingUntil = nowMs() + Math.max(900, longestActiveSpecialMillis() + 260);
+  }
+
+  function longestActiveSpecialMillis() {
+    const now = nowMs();
+    return game.pins.reduce((m, pin) => Math.max(m, pin.rocket ? ((pin.rocket.finishAt || (pin.rocket.startedAt + pin.rocket.duration)) - now) : 0), 0);
   }
 
   function updateBall(dt) {
@@ -1440,7 +1676,8 @@
     game.phase = "reward";
     game.rewardStartedAt = nowMs();
     game.nextLevelAt = game.rewardStartedAt + LEVEL_REWARD_MS + NEXT_LEVEL_DELAY_MS;
-    game.message = "MEOW!\nYou knocked them down!";
+    game.rewardLines = game.levelKind === "maze" ? ["MEOW!", "MEOW!", "MEOW!"] : ["MEOW!"];
+    game.message = game.levelKind === "maze" ? "MEOW!\nMEOW!\nMEOW!" : "MEOW!\nYou knocked them down!";
     audio.reward();
     for (let i = 0; i < 80; i += 1) {
       game.particles.push({
@@ -1616,6 +1853,7 @@
   function render(current) {
     drawBackground();
     drawTitleBar();
+    drawMazeLevel(current);
     drawPathPreview();
     drawPins(current);
     drawParticles(current);
@@ -1626,6 +1864,7 @@
     drawRotatingStatusText(current);
     drawHoldProgress(current);
     drawReward(current);
+    drawMazeOverlay(current);
     drawTitleOverlay(current);
     if (game.phase === "paused") drawPauseOverlay();
   }
@@ -1722,7 +1961,94 @@
     ctx.restore();
   }
 
+  function drawMazeLevel(current) {
+    if (game.levelKind !== "maze" || !game.maze) return;
+    const glowPulse = 0.86 + Math.sin(current / 260) * 0.08;
+    ctx.save();
+    ctx.fillStyle = "rgba(9, 15, 36, 0.58)";
+    roundRect(ctx, layout.wallLeft - 6, layout.playTop - 10, layout.wallRight - layout.wallLeft + 12, layout.playBottom - layout.playTop + layout.pinH * 0.70, 24);
+    ctx.fill();
+    ctx.restore();
+
+    const drawMazeStroke = (points, width, color, alpha, shadow) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      if (shadow) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = shadow;
+      }
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    const darkBranches = game.maze.branches || [];
+    for (const b of darkBranches) {
+      drawMazeStroke(b, layout.pinH * 0.36, "rgba(10,14,28,0.92)", 1, 0);
+      drawMazeStroke(b, layout.pinH * 0.18, "rgba(0,240,255,0.35)", 0.9, 10);
+    }
+    drawMazeStroke(game.maze.path, layout.pinH * 0.42, "rgba(10,14,28,0.98)", 1, 0);
+    drawMazeStroke(game.maze.path, layout.pinH * 0.25, "rgba(0, 240, 255, 0.85)", glowPulse, 18);
+    drawMazeStroke(game.maze.path, layout.pinH * 0.10, "rgba(255, 77, 210, 0.92)", glowPulse, 12);
+
+    const nodes = game.maze.path.filter((_, idx) => idx > 0 && idx < game.maze.path.length - 1);
+    ctx.save();
+    for (const n of nodes) {
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.shadowColor = "#00f0ff";
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, layout.pinW * 0.14, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    if (game.maze.exit) {
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = "rgba(255, 201, 51, 0.95)";
+      ctx.lineWidth = Math.max(3, layout.pinW * 0.16);
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.arc(game.maze.exit.x, game.maze.exit.y + layout.pinH * 0.42, layout.pinH * 0.34, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawMazeOverlay(current) {
+    if (game.phase !== "mazeintro") return;
+    const pulse = 1 + Math.sin(current / 210) * 0.03;
+    ctx.save();
+    ctx.fillStyle = "rgba(6, 10, 24, 0.46)";
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const big = clamp(view.w * 0.18, 64, 138) * pulse;
+    ctx.font = `1000 ${big}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.lineWidth = Math.max(6, big * 0.07);
+    ctx.strokeStyle = "rgba(60, 28, 132, 0.95)";
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeText("MAZE LEVEL!", view.w / 2, view.h * 0.41);
+    ctx.fillText("MAZE LEVEL!", view.w / 2, view.h * 0.41);
+    const small = clamp(view.w * 0.052, 20, 34);
+    ctx.font = `900 ${small}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.lineWidth = Math.max(4, small * 0.08);
+    ctx.strokeStyle = "rgba(20, 24, 80, 0.82)";
+    ctx.fillStyle = "#cfe8ff";
+    ctx.strokeText("tap anywhere to roll", view.w / 2, view.h * 0.50);
+    ctx.fillText("tap anywhere to roll", view.w / 2, view.h * 0.50);
+    ctx.restore();
+  }
+
   function drawPathPreview() {
+    if (game.levelKind === "maze") return;
     if (!game.ball || !game.ball.path || game.ball.path.length < 2) return;
     ctx.save();
     ctx.globalAlpha = 0.16;
@@ -2614,17 +2940,24 @@
     const t = clamp((current - game.rewardStartedAt) / LEVEL_REWARD_MS, 0, 1);
     const pulse = 1 + Math.sin(t * Math.PI * 5) * 0.035;
     const alpha = t < 0.82 ? 1 : clamp(1 - (t - 0.82) / 0.18, 0, 1);
+    const lines = game.rewardLines && game.rewardLines.length ? game.rewardLines : ["MEOW!"];
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const size = clamp(view.w * 0.20, 72, 150) * pulse;
+    const size = clamp(view.w * (lines.length > 1 ? 0.13 : 0.20), 54, lines.length > 1 ? 112 : 150) * pulse;
     ctx.font = `1000 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
     ctx.lineWidth = Math.max(7, size * 0.08);
     ctx.strokeStyle = "rgba(71, 55, 160, 0.72)";
     ctx.fillStyle = "#ffffff";
-    ctx.strokeText("MEOW!", view.w / 2, view.h * 0.43);
-    ctx.fillText("MEOW!", view.w / 2, view.h * 0.43);
+    const lineHeight = size * 1.02;
+    const centerY = view.h * 0.43;
+    const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
+    for (let i = 0; i < lines.length; i += 1) {
+      const y = startY + i * lineHeight;
+      ctx.strokeText(lines[i], view.w / 2, y);
+      ctx.fillText(lines[i], view.w / 2, y);
+    }
     ctx.restore();
   }
 
