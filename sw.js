@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meowmoon-bowling-v0-5-1-1-cache';
+const CACHE_NAME = 'meowmoon-bowling-v0-6-cache';
 const CORE_ASSETS = [
   './',
   './index.html',

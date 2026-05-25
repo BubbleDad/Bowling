@@ -1,5 +1,5 @@
-Meowmoon Bowling v0.5.1
-Fifth playable iteration
+Meowmoon Bowling v0.6
+Sixth playable iteration
 
 How to run locally
 1. Unzip the folder.
@@ -8,20 +8,19 @@ How to run locally
 4. Long-press the Meowmoon mascot for about 3 seconds to pause.
 5. Tap anywhere while paused to resume.
 
-
-Hotfix in v0.5.1
-- Fixed a runtime error that occurred at the moment the ball contacted a pin.
-- The error was caused by a function signature mismatch in the v0.5 hit-resolution path.
-- The fix restores pin-hit resolution, special pin animation, pin fade/removal, and subsequent player actions.
-
-Changes from v0.4
-- Added six more special pin animations: Treasure Chest, Toy Train, Popcorn, Kite, Magic Paint, and Flower Bloom.
-- Changed pin-special frequency so each level now has 3 special pins.
-- Added 6 special ball-roll animations: Comet Ball, Rainbow Trail, Yarn Unspooling, Super Bounce, Meteor, and Giant Bounce.
-- Changed ball-special frequency so each level now has 2 special balls.
-- Slowed down the Cat Paw pin animation so it is easier to notice.
-- Increased chain-help behavior and targeting bias toward clustered pins.
-- Added a stronger accessibility cap so levels finish in no more than 10 rolls.
+Changes from v0.5.1
+- Added distinct generated placeholder sounds for the newer special pin animations:
+  * Treasure Chest: chest-open and sparkle/reward sounds.
+  * Toy Train: chug and whistle-like toy-train sounds.
+  * Popcorn: pop-pop-pop cluster sounds.
+  * Kite: wind/flutter whoosh sounds.
+  * Magic Paint: brush-swish and paint-splash sounds.
+  * Flower Bloom: bloom/chime sounds.
+- Raised generated sound-effect gain significantly so special pin animations are easier to hear over the Bach MP3.
+- Lowered Bach MP3 background volume slightly to leave more room for effects.
+- Changed frequency to 4 special pins per level.
+- Changed frequency to 3 special balls per level.
+- Tightened level completion assist so each level finishes in no more than 8 rolls.
 
 Design still implemented
 - Portrait-first tablet/iPad layout.
@@ -33,15 +32,16 @@ Design still implemented
 - Tap-to-aim with quiet assist.
 - Side-wall bounces still supported.
 - If a roll misses, the next roll helps.
-- By design, all pins are cleared in no more than 10 rolls.
+- By design, all pins are cleared in no more than 8 rolls.
 - Level ends with the MEOW reward and then loads the next level.
 
-Audio
-- Background music remains the Bach MP3.
-- Rolling, impact, and special-animation sounds remain generated placeholders.
-- The prior background synth fallback remains removed.
+Current special pin animations
+Rocket, Piñata, Balloon, Firework, Jelly, Cat Paw, Treasure Chest, Toy Train, Popcorn, Kite, Magic Paint, and Flower Bloom.
 
-Known v0.5.1 limitations
-- The special-animation art is still canvas-drawn rather than sprite-based.
+Current special ball animations
+Comet, Rainbow Trail, Yarn Unspooling, Super Bounce, Meteor, and Giant Bounce.
+
+Known v0.6 limitations
+- Special-animation art is still canvas-drawn rather than sprite-based.
 - Special ball and pin behaviors are primarily visual reward events rather than full physics power-up systems.
-- This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.
+- This package has had a JavaScript syntax check and a lightweight contact-path smoke check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.

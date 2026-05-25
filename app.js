@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.5.1
-   * Fifth playable browser/PWA prototype hotfix: fixes contact-time runtime lock while preserving special pin and ball animations.
+   * Meowmoon Bowling v0.6
+   * Sixth playable browser/PWA prototype: stronger special-animation audio, 4 special pins, 3 special balls, and 8-roll level cap.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -21,12 +21,13 @@
   const BALL_SPEED = 740; // CSS pixels per second; steady and not twitchy.
   const PIN_FADE_DELAY_MS = 220;
   const PIN_FADE_MS = 720;
-  const MAX_ROLLS_PER_LEVEL = 10;
-  const SPECIAL_PINS_PER_LEVEL = 3;
-  const SPECIAL_BALLS_PER_LEVEL = 2;
+  const MAX_ROLLS_PER_LEVEL = 8;
+  const SPECIAL_PINS_PER_LEVEL = 4;
+  const SPECIAL_BALLS_PER_LEVEL = 3;
   const PIN_SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw", "treasure", "toytrain", "popcorn", "kite", "magicpaint", "flower"];
   const BALL_SPECIAL_TYPES = ["comet", "rainbow", "yarn", "superbounce", "meteor", "giantbounce"];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
+  const SFX_GAIN = 2.65;
 
 
   const ROTATING_STATUS_TEXTS = [
@@ -132,7 +133,7 @@
       if (!this.musicAudio) {
         this.musicAudio = document.getElementById("bachMusic") || new Audio("audio/jesu-joy-piano-loop.mp3");
         this.musicAudio.loop = true;
-        this.musicAudio.volume = 0.88;
+        this.musicAudio.volume = 0.70;
         this.musicAudio.muted = false;
         this.musicAudio.setAttribute("playsinline", "");
         this.musicAudio.setAttribute("webkit-playsinline", "");
@@ -198,8 +199,9 @@
       osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.992), at + duration);
       filter.type = "lowpass";
       filter.frequency.setValueAtTime(filterFreq, at);
+      const effectiveGain = Math.min(0.36, Math.max(0.0001, gainValue * SFX_GAIN));
       gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(gainValue, at + 0.012);
+      gain.gain.exponentialRampToValueAtTime(effectiveGain, at + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
       osc.connect(filter);
       filter.connect(gain);
@@ -266,7 +268,7 @@
       filter.frequency.value = 860;
       filter.Q.value = 0.8;
       const gain = this.context.createGain();
-      gain.gain.value = 0.026;
+      gain.gain.value = 0.065;
       source.connect(filter);
       filter.connect(gain);
       gain.connect(this.context.destination);
@@ -355,6 +357,69 @@
       const now = this.context.currentTime;
       this.playTone(180, now, 0.10, 0.09, "square", 850);
       this.playTone(520, now + 0.02, 0.16, 0.04, "triangle", 1700);
+    },
+
+    treasureOpen() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(140, now, 0.14, 0.11, "square", 700);
+      this.playTone(260, now + 0.06, 0.18, 0.075, "triangle", 1300);
+      this.playTone(620, now + 0.12, 0.22, 0.055, "triangle", 2200);
+    },
+
+    treasureSparkle() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      [660, 880, 1100, 1320].forEach((f, i) => this.playTone(f, now + i * 0.035, 0.18, 0.065, "triangle", 2600));
+    },
+
+    toyTrainStart() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(180, now, 0.12, 0.09, "square", 900);
+      this.playTone(240, now + 0.12, 0.12, 0.08, "square", 900);
+      this.playTone(980, now + 0.24, 0.18, 0.055, "triangle", 2200);
+    },
+
+    toyTrainChug() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(150, now, 0.10, 0.075, "square", 650);
+      this.playTone(210, now + 0.035, 0.10, 0.055, "triangle", 900);
+    },
+
+    popcornCluster() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      [360, 520, 440, 680, 580, 760].forEach((f, i) => this.playTone(f, now + i * 0.035, 0.08, 0.075, "square", 1800));
+    },
+
+    kiteWhoosh() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(260, now, 0.26, 0.065, "sine", 1100);
+      this.playTone(420, now + 0.10, 0.30, 0.055, "triangle", 1600);
+      this.playTone(620, now + 0.22, 0.24, 0.045, "triangle", 1900);
+    },
+
+    brushSwish() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(320, now, 0.10, 0.065, "triangle", 1200);
+      this.playTone(720, now + 0.05, 0.18, 0.060, "triangle", 2400);
+    },
+
+    paintSplash() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(190, now, 0.14, 0.10, "square", 800);
+      [440, 560, 700].forEach((f, i) => this.playTone(f, now + 0.05 + i * 0.035, 0.16, 0.060, "triangle", 1900));
+    },
+
+    flowerBloom() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.playTone(f, now + i * 0.045, 0.24, 0.060, "triangle", 2200));
     },
 
     hitPins(count = 1) {
@@ -672,7 +737,7 @@
       pin.hitAt += pausedDuration;
       if (pin.fadeStartAt) pin.fadeStartAt += pausedDuration;
       if (pin.rocket) {
-        ["startedAt", "burstAt", "popAt", "meltAt", "swipeAt", "finishAt"].forEach(key => { if (pin.rocket[key]) pin.rocket[key] += pausedDuration; });
+        ["startedAt", "burstAt", "popAt", "meltAt", "swipeAt", "finishAt", "nextChug"].forEach(key => { if (pin.rocket[key]) pin.rocket[key] += pausedDuration; });
       }
     }
     game.phase = game.previousPhase || "playing";
@@ -1015,17 +1080,20 @@
       audio.catPawSwipe();
       pin.rocket.exit = { x: exitSide < 0 ? -layout.pinH * 1.5 : view.w + layout.pinH * 1.5, y: pin.y + rand(-layout.pinH * 0.2, layout.pinH * 0.15) };
     } else if (type === "treasure") {
-      audio.pinataBurst();
+      audio.treasureOpen();
     } else if (type === "toytrain") {
+      audio.toyTrainStart();
+      pin.rocket.nextChug = current + 260;
       pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.8, y: pin.y + rand(-layout.pinH * 0.2, layout.pinH * 0.2) }, { x: layout.wallRight - layout.pinH * 0.8, y: pin.y + rand(-layout.pinH * 0.25, layout.pinH * 0.25) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.3, layout.pinH * 0.3) }];
     } else if (type === "popcorn") {
-      audio.balloonPop();
+      audio.popcornCluster();
     } else if (type === "kite") {
+      audio.kiteWhoosh();
       pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: pin.x + rand(-layout.pinH * 0.8, layout.pinH * 0.8), y: pin.y - layout.pinH * 1.6 }, { x: pin.x + rand(-layout.pinH * 1.2, layout.pinH * 1.2), y: layout.playTop - layout.pinH * 0.1 }, { x: pin.x + rand(-layout.pinH * 1.4, layout.pinH * 1.4), y: -layout.pinH * 1.0 }];
     } else if (type === "magicpaint") {
-      audio.fireworkBurst();
+      audio.brushSwish();
     } else if (type === "flower") {
-      audio.jellyWobble();
+      audio.flowerBloom();
     }
   }
 
@@ -1112,6 +1180,7 @@
       if (s.type === "firework" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.fireworkBurst(); makeFireworkBurst(pin.x, pin.y); }
       if (s.type === "balloon" && !s.popped && current >= s.popAt) { s.popped = true; audio.balloonPop(); makeBalloonPop(pin.x, pin.y, s.balloonColor); }
       if (s.type === "toytrain" && Math.random() < 0.22) makeTrainPuff(pin.x - layout.pinW * 0.4, pin.y + layout.pinH * 0.2);
+      if (s.type === "toytrain" && current >= (s.nextChug || 0)) { audio.toyTrainChug(); s.nextChug = current + 310; }
       if (t >= 1) {
         pin.removed = true;
         if ((s.type === "rocket" || s.type === "firework") && !game.pins.some(p => p !== pin && p.rocket && !p.removed && (p.rocket.type === "rocket" || p.rocket.type === "firework"))) audio.stopRocketFlight();
@@ -1147,27 +1216,27 @@
 
     if (s.type === "treasure") {
       pin.angle = Math.sin(age / 90) * 0.08;
-      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makeTreasureBurst(pin.x, pin.y); }
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.treasureSparkle(); makeTreasureBurst(pin.x, pin.y); }
       if (t >= 1) pin.removed = true;
       return;
     }
 
     if (s.type === "popcorn") {
       pin.angle = Math.sin(age / 70) * 0.12;
-      if (!s.popped && current >= s.popAt) { s.popped = true; makePopcornBurst(pin.x, pin.y); }
+      if (!s.popped && current >= s.popAt) { s.popped = true; audio.popcornCluster(); makePopcornBurst(pin.x, pin.y); }
       if (t >= 1) pin.removed = true;
       return;
     }
 
     if (s.type === "magicpaint") {
       pin.angle = Math.sin(age / 80) * 0.18;
-      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makePaintBurst(pin.x, pin.y, s.paintColor); }
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.paintSplash(); makePaintBurst(pin.x, pin.y, s.paintColor); }
       if (t >= 1) pin.removed = true;
       return;
     }
 
     if (s.type === "flower") {
-      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; makeFlowerBurst(pin.x, pin.y, s.petalColor); }
+      if (!s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.flowerBloom(); makeFlowerBurst(pin.x, pin.y, s.petalColor); }
       if (t >= 1) pin.removed = true;
       return;
     }
