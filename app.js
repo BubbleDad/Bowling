@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v0.6
-   * Sixth playable browser/PWA prototype: stronger special-animation audio, 4 special pins, 3 special balls, and 8-roll level cap.
+   * Meowmoon Bowling v0.7
+   * Seventh playable browser/PWA prototype: more vehicle pin animations, louder SFX, one special pin per roll, and more reliable intro splash.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -22,12 +22,12 @@
   const PIN_FADE_DELAY_MS = 220;
   const PIN_FADE_MS = 720;
   const MAX_ROLLS_PER_LEVEL = 8;
-  const SPECIAL_PINS_PER_LEVEL = 4;
+  const SPECIAL_PINS_PER_LEVEL = MAX_ROLLS_PER_LEVEL;
   const SPECIAL_BALLS_PER_LEVEL = 3;
-  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw", "treasure", "toytrain", "popcorn", "kite", "magicpaint", "flower"];
+  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "balloon", "firework", "jelly", "catpaw", "treasure", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer"];
   const BALL_SPECIAL_TYPES = ["comet", "rainbow", "yarn", "superbounce", "meteor", "giantbounce"];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
-  const SFX_GAIN = 2.65;
+  const SFX_GAIN = 4.1;
 
 
   const ROTATING_STATUS_TEXTS = [
@@ -69,6 +69,7 @@
     ball: null,
     pathPreview: [],
     titleStartedAt: performance.now(),
+    introDismissed: false,
     phase: "title", // title, playing, rolling, resolving, reward, paused
     previousPhase: "playing",
     rewardStartedAt: 0,
@@ -85,7 +86,8 @@
     rollsThisLevel: 0,
     specialBallMap: {},
     remainingSpecialPins: 0,
-    bounceBursts: []
+    bounceBursts: [],
+    pinSpecialQueue: []
   };
 
   const messages = [
@@ -133,7 +135,7 @@
       if (!this.musicAudio) {
         this.musicAudio = document.getElementById("bachMusic") || new Audio("audio/jesu-joy-piano-loop.mp3");
         this.musicAudio.loop = true;
-        this.musicAudio.volume = 0.70;
+        this.musicAudio.volume = 0.42;
         this.musicAudio.muted = false;
         this.musicAudio.setAttribute("playsinline", "");
         this.musicAudio.setAttribute("webkit-playsinline", "");
@@ -199,7 +201,7 @@
       osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.992), at + duration);
       filter.type = "lowpass";
       filter.frequency.setValueAtTime(filterFreq, at);
-      const effectiveGain = Math.min(0.36, Math.max(0.0001, gainValue * SFX_GAIN));
+      const effectiveGain = Math.min(0.62, Math.max(0.0001, gainValue * SFX_GAIN));
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.exponentialRampToValueAtTime(effectiveGain, at + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
@@ -227,7 +229,7 @@
       filter.type = "lowpass";
       filter.frequency.value = 210;
       const gain = this.context.createGain();
-      gain.gain.value = 0.018;
+      gain.gain.value = 0.038;
       source.connect(filter);
       filter.connect(gain);
       gain.connect(this.context.destination);
@@ -268,7 +270,7 @@
       filter.frequency.value = 860;
       filter.Q.value = 0.8;
       const gain = this.context.createGain();
-      gain.gain.value = 0.065;
+      gain.gain.value = 0.11;
       source.connect(filter);
       filter.connect(gain);
       gain.connect(this.context.destination);
@@ -422,6 +424,79 @@
       [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.playTone(f, now + i * 0.045, 0.24, 0.060, "triangle", 2200));
     },
 
+    raceCarRev() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(120, now, 0.14, 0.12, "sawtooth", 800);
+      this.playTone(180, now + 0.04, 0.18, 0.10, "sawtooth", 1100);
+      this.playTone(280, now + 0.09, 0.22, 0.08, "square", 1400);
+    },
+
+    raceCarSkid() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(320, now, 0.08, 0.09, "square", 1600);
+      this.playTone(210, now + 0.02, 0.10, 0.09, "triangle", 1200);
+    },
+
+    airplaneTakeoff() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(180, now, 0.18, 0.10, "sawtooth", 900);
+      this.playTone(260, now + 0.06, 0.26, 0.09, "triangle", 1400);
+      this.playTone(420, now + 0.14, 0.30, 0.07, "triangle", 1800);
+    },
+
+    airplanePass() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(560, now, 0.16, 0.07, "triangle", 1900);
+      this.playTone(760, now + 0.04, 0.18, 0.06, "triangle", 2200);
+    },
+
+    helicopterStart() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(140, now, 0.12, 0.11, "square", 700);
+      this.playTone(190, now + 0.04, 0.12, 0.10, "square", 850);
+      this.playTone(240, now + 0.08, 0.14, 0.09, "square", 1000);
+    },
+
+    helicopterChop() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(180, now, 0.06, 0.09, "square", 900);
+      this.playTone(220, now + 0.03, 0.06, 0.07, "square", 1100);
+    },
+
+    busHorn() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(220, now, 0.16, 0.12, "square", 1000);
+      this.playTone(330, now + 0.04, 0.16, 0.10, "triangle", 1300);
+    },
+
+    busDrive() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(140, now, 0.10, 0.08, "square", 650);
+      this.playTone(180, now + 0.03, 0.10, 0.06, "triangle", 900);
+    },
+
+    bulldozerRumble() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(90, now, 0.16, 0.13, "sawtooth", 500);
+      this.playTone(130, now + 0.04, 0.18, 0.10, "square", 700);
+    },
+
+    bulldozerClank() {
+      if (!this.context || this.isMutedByPause) return;
+      const now = this.context.currentTime;
+      this.playTone(220, now, 0.08, 0.10, "square", 1300);
+      this.playTone(440, now + 0.025, 0.12, 0.06, "triangle", 2200);
+    },
+
     hitPins(count = 1) {
       if (!this.context || this.isMutedByPause) return;
       const now = this.context.currentTime;
@@ -516,15 +591,17 @@
     game.pins = [];
     game.ball = null;
     game.pathPreview = [];
-    game.phase = currentTitleAlpha(nowMs()) > 0.01 ? "title" : "playing";
+    game.phase = game.level === 1 && !game.introDismissed ? "title" : "playing";
     game.forceHitNext = false;
     game.particles = [];
     game.rollsThisLevel = 0;
     game.specialBallMap = {};
     game.remainingSpecialPins = 0;
     game.bounceBursts = [];
+    game.pinSpecialQueue = shuffled(PIN_SPECIAL_TYPES);
     game.messageIndex = (game.level - 1) % messages.length;
     game.message = messages[game.messageIndex];
+    if (game.level === 1 && !game.introDismissed) game.titleStartedAt = nowMs();
     generatePins();
     assignSpecialPins();
     assignSpecialBalls();
@@ -539,14 +616,17 @@
     return a;
   }
 
+  function nextPinSpecialType() {
+    if (!game.pinSpecialQueue || !game.pinSpecialQueue.length) game.pinSpecialQueue = shuffled(PIN_SPECIAL_TYPES);
+    return game.pinSpecialQueue.shift();
+  }
+
   function assignSpecialPins() {
-    const candidates = shuffled(game.pins).slice(0, Math.min(SPECIAL_PINS_PER_LEVEL, game.pins.length));
-    const types = shuffled(PIN_SPECIAL_TYPES).slice(0, candidates.length);
-    candidates.forEach((pin, idx) => {
-      pin.specialType = types[idx] || PIN_SPECIAL_TYPES[idx % PIN_SPECIAL_TYPES.length];
+    game.pins.forEach(pin => {
+      pin.specialType = nextPinSpecialType();
       pin.specialTriggered = false;
     });
-    game.remainingSpecialPins = candidates.length;
+    game.remainingSpecialPins = game.pins.length;
   }
 
   function assignSpecialBalls() {
@@ -630,9 +710,7 @@
   }
 
   function currentTitleAlpha(current) {
-    const elapsed = current - game.titleStartedAt;
-    if (elapsed <= TITLE_HOLD_MS) return 1;
-    return clamp(1 - (elapsed - TITLE_HOLD_MS) / TITLE_FADE_MS, 0, 1);
+    return game.introDismissed ? 0 : 1;
   }
 
   function pointerToGame(evt) {
@@ -659,7 +737,14 @@
       return;
     }
 
-    if (currentTitleAlpha(nowMs()) > 0.12) return;
+    if (game.phase === "title") {
+      game.introDismissed = true;
+      game.phase = "playing";
+      audio.start();
+      fireBall(p);
+      return;
+    }
+
     if (game.phase !== "playing" || game.ball) return;
 
     audio.start();
@@ -1035,7 +1120,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(820, 1300), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700) };
     const duration = durationMap[type];
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -1094,6 +1179,21 @@
       audio.brushSwish();
     } else if (type === "flower") {
       audio.flowerBloom();
+    } else if (type === "racecar") {
+      audio.raceCarRev();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.5, y: pin.y + rand(-layout.pinH * 0.18, layout.pinH * 0.18) }, { x: layout.wallRight - layout.pinH * 0.6, y: pin.y + rand(-layout.pinH * 0.22, layout.pinH * 0.22) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.18, layout.pinH * 0.18) }];
+    } else if (type === "airplane") {
+      audio.airplaneTakeoff();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: pin.x + rand(-layout.pinH * 0.6, layout.pinH * 0.6), y: pin.y - layout.pinH * 1.2 }, { x: pin.x + rand(-layout.pinH * 1.4, layout.pinH * 1.4), y: layout.playTop + layout.pinH * 0.35 }, { x: exitX, y: layout.playTop - layout.pinH * 0.7 }];
+    } else if (type === "helicopter") {
+      audio.helicopterStart();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: pin.x + rand(-layout.pinH * 0.7, layout.pinH * 0.7), y: pin.y - layout.pinH * 0.9 }, { x: rand(layout.wallLeft + layout.pinH * 0.6, layout.wallRight - layout.pinH * 0.6), y: rand(layout.playTop + layout.pinH * 0.6, layout.playTop + layout.pinH * 2.1) }, { x: exitX, y: rand(layout.playTop + layout.pinH * 0.2, layout.playTop + layout.pinH * 1.3) }];
+    } else if (type === "bus") {
+      audio.busHorn();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.55, y: pin.y + rand(-layout.pinH * 0.14, layout.pinH * 0.14) }, { x: layout.wallRight - layout.pinH * 0.55, y: pin.y + rand(-layout.pinH * 0.14, layout.pinH * 0.14) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.18, layout.pinH * 0.18) }];
+    } else if (type === "bulldozer") {
+      audio.bulldozerRumble();
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.5, y: pin.y + rand(-layout.pinH * 0.16, layout.pinH * 0.16) }, { x: layout.wallRight - layout.pinH * 0.6, y: pin.y + rand(-layout.pinH * 0.16, layout.pinH * 0.16) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.12, layout.pinH * 0.12) }];
     }
   }
 
@@ -1163,7 +1263,7 @@
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (["rocket", "firework", "balloon", "toytrain", "kite"].includes(s.type)) {
+    if (["rocket", "firework", "balloon", "toytrain", "kite", "racecar", "airplane", "helicopter", "bus", "bulldozer"].includes(s.type)) {
       const path = s.path;
       const scaled = t * (path.length - 1);
       const segment = Math.min(path.length - 2, Math.floor(scaled));
@@ -1171,16 +1271,26 @@
       const eased = 0.5 - Math.cos(localT * Math.PI) * 0.5;
       const a = path[segment];
       const b = path[segment + 1];
-      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : s.type === "kite" ? layout.pinH * 0.12 : layout.pinH * 0.035;
+      const wobbleAmp = s.type === "balloon" ? layout.pinH * 0.10 : s.type === "kite" ? layout.pinH * 0.12 : s.type === "helicopter" ? layout.pinH * 0.06 : s.type === "airplane" ? layout.pinH * 0.04 : layout.pinH * 0.035;
       pin.x = lerp(a.x, b.x, eased) + Math.sin(age / 120 + (s.variant % 7)) * wobbleAmp;
-      pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 140) * (s.type === "toytrain" ? 3 : layout.pinH * 0.025);
-      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : s.type === "kite" ? 0.35 : 0.18);
+      pin.y = lerp(a.y, b.y, eased) + Math.cos(age / 140) * (s.type === "toytrain" || s.type === "bus" || s.type === "bulldozer" ? 3 : s.type === "helicopter" ? 8 : layout.pinH * 0.025);
+      pin.angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2 + Math.sin(age / 130) * (s.type === "balloon" ? 0.28 : s.type === "kite" ? 0.35 : s.type === "racecar" ? 0.10 : s.type === "bus" ? 0.08 : s.type === "bulldozer" ? 0.07 : 0.18);
       if (["rocket", "firework", "meteor"].includes(s.type) && Math.random() < 0.55) makeRocketTrailParticles(pin.x, pin.y + layout.pinH * 0.20, 1);
       if (s.type === "rocket" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.rocketBurst(); makePinataBurst(pin.x, pin.y); }
       if (s.type === "firework" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; audio.fireworkBurst(); makeFireworkBurst(pin.x, pin.y); }
       if (s.type === "balloon" && !s.popped && current >= s.popAt) { s.popped = true; audio.balloonPop(); makeBalloonPop(pin.x, pin.y, s.balloonColor); }
       if (s.type === "toytrain" && Math.random() < 0.22) makeTrainPuff(pin.x - layout.pinW * 0.4, pin.y + layout.pinH * 0.2);
+      if (s.type === "racecar" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeRaceCarBurst(pin.x, pin.y); }
+      if (s.type === "airplane" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeAirplaneBurst(pin.x, pin.y); }
+      if (s.type === "helicopter" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeHelicopterBurst(pin.x, pin.y); }
+      if (s.type === "bus" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBusBurst(pin.x, pin.y); }
+      if (s.type === "bulldozer" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBulldozerBurst(pin.x, pin.y); }
       if (s.type === "toytrain" && current >= (s.nextChug || 0)) { audio.toyTrainChug(); s.nextChug = current + 310; }
+      if (s.type === "racecar" && current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 420; }
+      if (s.type === "airplane" && current >= (s.nextChug || 0)) { audio.airplanePass(); s.nextChug = current + 650; }
+      if (s.type === "helicopter" && current >= (s.nextChug || 0)) { audio.helicopterChop(); s.nextChug = current + 170; }
+      if (s.type === "bus" && current >= (s.nextChug || 0)) { audio.busDrive(); s.nextChug = current + 360; }
+      if (s.type === "bulldozer" && current >= (s.nextChug || 0)) { audio.bulldozerClank(); s.nextChug = current + 320; }
       if (t >= 1) {
         pin.removed = true;
         if ((s.type === "rocket" || s.type === "firework") && !game.pins.some(p => p !== pin && p.rocket && !p.removed && (p.rocket.type === "rocket" || p.rocket.type === "firework"))) audio.stopRocketFlight();
@@ -1382,6 +1492,12 @@
       game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - rand(0, 140), size: rand(5, 12), color: ["#fff7a8","#ffb739","#ff7a31","#ef3340"][randInt(0,3)], shape: Math.random() < 0.6 ? "spark" : "star", spin: rand(-9,9), startedAt: nowMs(), duration: rand(700, 1400) });
     }
   }
+
+  function makeRaceCarBurst(x, y) { makeWallBounceBurst(x, y); }
+  function makeAirplaneBurst(x, y) { makeFireworkBurst(x, y); }
+  function makeHelicopterBurst(x, y) { makeCatPawBurst(x, y); }
+  function makeBusBurst(x, y) { makeTreasureBurst(x, y); }
+  function makeBulldozerBurst(x, y) { makePinataBurst(x, y); }
 
   function makeImpactParticles(x, y, strength) {
     const count = clamp(8 + strength * 4, 10, 34);
@@ -1644,6 +1760,11 @@
     if (type === "kite") return drawKitePin(pin, current);
     if (type === "magicpaint") return drawMagicPaintPin(pin, current);
     if (type === "flower") return drawFlowerPin(pin, current);
+    if (type === "racecar") return drawRaceCarPin(pin, current);
+    if (type === "airplane") return drawAirplanePin(pin, current);
+    if (type === "helicopter") return drawHelicopterPin(pin, current);
+    if (type === "bus") return drawBusPin(pin, current);
+    if (type === "bulldozer") return drawBulldozerPin(pin, current);
     return drawRocketPin(pin, current);
   }
 
@@ -1836,6 +1957,56 @@
     ctx.strokeStyle = "#4cae57"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, layout.pinH*0.52); ctx.quadraticCurveTo(-4, 10, 0, -layout.pinH*0.1); ctx.stroke();
     ctx.fillStyle = s.petalColor; for (let i=0;i<6;i+=1){ ctx.save(); ctx.rotate(i*TAU/6 + age/1000); ctx.beginPath(); ctx.ellipse(0, -layout.pinH*0.18*bloom, layout.pinW*0.25*bloom, layout.pinH*0.24*bloom, 0, 0, TAU); ctx.fill(); ctx.restore(); }
     ctx.fillStyle = "#ffe36d"; ctx.beginPath(); ctx.arc(0, 0, layout.pinW*0.18*bloom, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawRaceCarPin(pin, current) {
+    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.52;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 150) * 0.06);
+    ctx.fillStyle = "#ef3340"; roundRect(ctx, -size * 0.58, -size * 0.10, size * 1.02, size * 0.34, size * 0.12); ctx.fill();
+    ctx.fillStyle = "#ffd24d"; roundRect(ctx, -size * 0.18, -size * 0.26, size * 0.34, size * 0.20, size * 0.08); ctx.fill();
+    ctx.fillStyle = "#333"; [-0.35,0.22].forEach(ox=>{ctx.beginPath(); ctx.arc(size*ox, size*0.26, size*0.12, 0, TAU); ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawAirplanePin(pin, current) {
+    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.56;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 180) * 0.08);
+    ctx.fillStyle = "#ffffff"; roundRect(ctx, -size * 0.12, -size * 0.55, size * 0.24, size * 0.95, size * 0.12); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -size*0.48); ctx.lineTo(size*0.14, -size*0.30); ctx.lineTo(-size*0.14, -size*0.30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#7bdfff"; ctx.beginPath(); ctx.moveTo(-size*0.70, -size*0.05); ctx.lineTo(size*0.70, -size*0.05); ctx.lineTo(0, size*0.16); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ef3340"; ctx.beginPath(); ctx.moveTo(0, size*0.34); ctx.lineTo(size*0.36, size*0.52); ctx.lineTo(0, size*0.10); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHelicopterPin(pin, current) {
+    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.54;
+    ctx.save(); ctx.translate(pin.x, pin.y);
+    ctx.fillStyle = "#63e38c"; roundRect(ctx, -size * 0.42, -size * 0.16, size * 0.72, size * 0.36, size * 0.16); ctx.fill();
+    ctx.fillStyle = "#7bdfff"; roundRect(ctx, -size * 0.16, -size * 0.12, size * 0.28, size * 0.18, size * 0.06); ctx.fill();
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-size*0.14, size*0.24); ctx.lineTo(size*0.34, size*0.24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-size*0.52, -size*0.30); ctx.lineTo(size*0.52, -size*0.30); ctx.stroke();
+    ctx.save(); ctx.rotate(age / 80); ctx.beginPath(); ctx.moveTo(-size*0.66, -size*0.30); ctx.lineTo(size*0.66, -size*0.30); ctx.moveTo(0, -size*0.96); ctx.lineTo(0, size*0.36); ctx.stroke(); ctx.restore();
+    ctx.restore();
+  }
+
+  function drawBusPin(pin, current) {
+    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.56;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 180) * 0.04);
+    ctx.fillStyle = "#ffd24d"; roundRect(ctx, -size * 0.64, -size * 0.18, size * 1.18, size * 0.46, size * 0.10); ctx.fill();
+    ctx.fillStyle = "#7bdfff"; [-0.40,-0.18,0.04,0.26].forEach(ox=>ctx.fillRect(size*ox, -size*0.11, size*0.15, size*0.14));
+    ctx.fillStyle = "#333"; [-0.42,0.24].forEach(ox=>{ctx.beginPath(); ctx.arc(size*ox, size*0.30, size*0.12, 0, TAU); ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawBulldozerPin(pin, current) {
+    const age = current - pin.rocket.startedAt; const size = layout.pinH * 0.58;
+    ctx.save(); ctx.translate(pin.x, pin.y); ctx.rotate(Math.sin(age / 180) * 0.03);
+    ctx.fillStyle = "#ffb739"; roundRect(ctx, -size * 0.48, -size * 0.10, size * 0.72, size * 0.34, size * 0.10); ctx.fill();
+    ctx.fillStyle = "#7bdfff"; roundRect(ctx, -size * 0.10, -size * 0.28, size * 0.26, size * 0.20, size * 0.05); ctx.fill();
+    ctx.fillStyle = "#555"; ctx.fillRect(size*0.14, size*0.00, size*0.32, size*0.06);
+    ctx.beginPath(); ctx.moveTo(size*0.42, -size*0.08); ctx.lineTo(size*0.74, size*0.08); ctx.lineTo(size*0.42, size*0.24); ctx.closePath(); ctx.fillStyle = "#d3c088"; ctx.fill();
+    ctx.fillStyle = "#333"; [-0.26,0.00].forEach(ox=>{ctx.beginPath(); ctx.arc(size*ox, size*0.26, size*0.11, 0, TAU); ctx.fill();});
     ctx.restore();
   }
 
