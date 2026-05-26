@@ -1,5 +1,5 @@
-Meowmoon Bowling v1.0.2
-Maze-level hotfix iteration
+Meowmoon Bowling v0.9
+Ninth playable iteration
 
 How to run locally
 1. Unzip the folder.
@@ -9,34 +9,32 @@ How to run locally
 5. Long-press the Meowmoon mascot for about 3 seconds to pause.
 6. Tap anywhere while paused to resume.
 
-Changed from v1.0.1
-- Reduced the size of the MAZE LEVEL! opening text so it fits better on screen.
-- Reduced the size of the smaller tap anywhere to roll text under MAZE LEVEL!.
-- Slowed maze ball travel to half of the regular ball speed.
-- Reworked maze generation to use more of the playfield.
-- Reworked the maze path to be more like a square labyrinth with more horizontal and vertical turns.
-- Increased maze path pins from 5-8 to 10-14.
-- Increased final maze clump pins from 5-8 to 6-9.
-- Kept the guaranteed every-fourth-level maze cadence for review: levels 4, 8, 12, etc.
-- Updated service worker cache to v1.0.2.
+Changes from v0.8
+- Removed the Treasure Chest, Fish, and Penguin animations from the active special-pin pool.
+- Replaced Dog Zoomies art with the Floppy-Ear Puppy Zoom version.
+- Replaced Frog art with the Crouch-and-Spring Frog version.
+- Replaced Airplane art with the Paper Airplane Pin version.
+- Replaced Bunny art with the Cream Bunny with Pink Accents version.
+- Split Piñata into two active special-pin variants:
+  * Layered Fringe Piñata
+  * Star Burst Piñata
+- Updated the app version and service worker cache version to v0.9.
 
-Maze behavior
-- Maze levels are randomly generated each time they appear.
-- A maze level begins with the large message "MAZE LEVEL!" and smaller text "tap anywhere to roll".
-- One tap sends the ball through the full maze route automatically.
-- Along the route, the ball knocks down pins and triggers the same special pin animations used in regular play.
-- At the end of the maze, the ball hits a final clump of pins and triggers several more special animations.
-- Maze reward text is shown on three lines: "MEOW!" / "MEOW!" / "MEOW!".
-- Maze levels do not occur two times in a row.
-
-Continuing design
+Design still implemented
+- Portrait-first tablet/iPad layout.
 - Same Meowmoon cat mascot placement, size, and long-press pause behavior copied from Bubble Shooter v0.9.
 - Same sky background family, pause graphic, and text-box/status-box family copied from Bubble Shooter v0.9.
 - No score, no frames, no losing, no timers, no penalties, no accounts, no ads, and no in-app purchases.
-- Regular levels still use tap-to-aim with quiet assist and side-wall bounces.
-- Regular levels are designed to finish in no more than 8 rolls.
-- Special pin animations remain the passive reward core of the game.
+- Randomly generated levels with 16 to 24 pins.
+- Unlimited balls.
+- Tap-to-aim with quiet assist.
+- Side-wall bounces still supported.
+- One special pin animation is intended to occur on every successful roll.
+- No special ball effects are assigned in v0.9.
+- Levels are designed to finish in no more than 8 rolls.
+- Level ends with the MEOW reward and then loads the next level.
 
-Notes
-- Maze visuals use a Neon Arcade Maze treatment inside the same overall Meowmoon playfield.
+Known v0.9 limitations
+- The special-animation art is still canvas-drawn rather than sprite-based.
+- Vehicle and animal behaviors are visual reward events, not realistic physics.
 - This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.
