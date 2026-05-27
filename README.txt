@@ -1,4 +1,4 @@
-Meowmoon Bowling v1.2
+Meowmoon Bowling v1.2.1
 Eleventh playable iteration
 
 How to run locally
@@ -11,7 +11,7 @@ How to run locally
 
 Changes from v1.0.3
 - Removed the maze-level feature rather than merely disabling it.
-- Built v1.2 from the clean regular-game code path, so the game returns to regular bowling levels only.
+- Built v1.2.1 from the clean regular-game code path, so the game returns to regular bowling levels only.
 - Added 14 sports-action special pin animations to the active special-pin pool:
   * Bat hits baseball
   * Basketball dribble
@@ -27,7 +27,7 @@ Changes from v1.0.3
   * Mini bowling strike
   * Ski jump
   * Gymnastics flip
-- Updated the app version and service worker cache version to v1.2.
+- Updated the app version and service worker cache version to v1.2.1.
 
 Continuing design
 - Same Meowmoon cat mascot placement, size, and long-press pause behavior copied from Bubble Shooter v0.9.
@@ -38,9 +38,9 @@ Continuing design
 - Tap-to-aim with quiet assist.
 - Side-wall bounces still supported.
 - One special pin animation is intended to occur on every successful roll.
-- No special ball effects are assigned in v1.2.
+- No special ball effects are assigned in v1.2.1.
 - Levels are designed to finish in no more than 8 rolls.
 
-Known v1.2 limitations
+Known v1.2.1 limitations
 - Sports actions are canvas-drawn simplified reward animations, not realistic sports physics.
 - This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.

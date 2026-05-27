@@ -1066,7 +1066,8 @@
     if (ballSpecial === "meteor") makeMeteorImpact(pin.x, pin.y);
     if (ballSpecial === "giantbounce") makePinataBurst(pin.x, pin.y);
     const longestSpecial = knocked.reduce((m, p) => Math.max(m, p.rocket ? ((p.rocket.finishAt || (p.rocket.startedAt + p.rocket.duration)) - nowMs()) : 0), 0);
-    game.resolvingUntil = nowMs() + (specialHit ? Math.max(700, longestSpecial + 160) : PIN_FADE_DELAY_MS + PIN_FADE_MS + 160);
+    const safeLongestSpecial = Number.isFinite(longestSpecial) ? longestSpecial : 700;
+    game.resolvingUntil = nowMs() + (specialHit ? Math.max(700, safeLongestSpecial + 160) : PIN_FADE_DELAY_MS + PIN_FADE_MS + 160);
   }
 
   function resolveMiss() {
@@ -1158,8 +1159,8 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2000, 2900), footballthrow: randInt(1700, 2500), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
-    const duration = durationMap[type];
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(900, 1400), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2000, 2900), footballthrow: randInt(1700, 2500), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
+    const duration = durationMap[type] || randInt(1700, 2500);
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
     const exitY = rand(layout.playTop + layout.pinH * 0.2, layout.playBottom - layout.pinH * 0.4);
@@ -1255,6 +1256,10 @@
       audio.penguinSlide();
       pin.rocket.nextChug = current + 480;
       pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.6, y: pin.y + rand(-layout.pinH * 0.06, layout.pinH * 0.06) }, { x: layout.wallRight - layout.pinH * 0.6, y: pin.y + rand(-layout.pinH * 0.06, layout.pinH * 0.06) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.06, layout.pinH * 0.06) }];
+    } else if (type === "wheelchairsprint") {
+      audio.raceCarRev();
+      pin.rocket.nextChug = current + 340;
+      pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.65, y: pin.y + rand(-layout.pinH * 0.08, layout.pinH * 0.08) }, { x: layout.wallRight - layout.pinH * 0.65, y: pin.y + rand(-layout.pinH * 0.08, layout.pinH * 0.08) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.10, layout.pinH * 0.10) }];
     } else if (type === "dogzoomies") {
       audio.dogZoomies();
       pin.rocket.nextChug = current + 260;
@@ -1334,10 +1339,11 @@
   function updateSpecialPin(pin, current, dt) {
     const s = pin.rocket;
     if (!s) return;
+    if (!Number.isFinite(s.duration) || s.duration <= 0) { pin.removed = true; return; }
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (["rocket", "firework", "balloon", "toytrain", "kite", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "volleyballspike", "baseballcatch", "bowlingstrike", "skijump", "gymnasticsflip"].includes(s.type)) {
+    if (["rocket", "firework", "balloon", "toytrain", "kite", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "volleyballspike", "baseballcatch", "bowlingstrike", "wheelchairsprint", "skijump", "gymnasticsflip"].includes(s.type)) {
       const path = s.path;
       const scaled = t * (path.length - 1);
       const segment = Math.min(path.length - 2, Math.floor(scaled));
@@ -1363,7 +1369,7 @@
       if (s.type === "frog" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeFrogBurst(pin.x, pin.y); }
       if (s.type === "bird" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeBirdBurst(pin.x, pin.y); }
       if (s.type === "dogzoomies" && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeDogBurst(pin.x, pin.y); }
-      if (["batbaseball", "basketballhoop", "hockeypuck", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "volleyballspike", "baseballcatch", "bowlingstrike", "skijump", "gymnasticsflip", "basketballdribble", "curling"].includes(s.type) && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeSportBurst(pin.x, pin.y, s.type); }
+      if (["batbaseball", "basketballhoop", "hockeypuck", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "volleyballspike", "baseballcatch", "bowlingstrike", "wheelchairsprint", "skijump", "gymnasticsflip", "basketballdribble", "curling"].includes(s.type) && !s.burstDone && current >= s.burstAt) { s.burstDone = true; makeSportBurst(pin.x, pin.y, s.type); }
       if (s.type === "toytrain" && current >= (s.nextChug || 0)) { audio.toyTrainChug(); s.nextChug = current + 310; }
       if (s.type === "racecar" && current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 420; }
       if (s.type === "airplane" && current >= (s.nextChug || 0)) { audio.airplanePass(); s.nextChug = current + 650; }
@@ -1375,6 +1381,7 @@
       if (s.type === "bird" && current >= (s.nextChug || 0)) { audio.birdChirp(); s.nextChug = current + 260; }
       if (s.type === "dogzoomies" && current >= (s.nextChug || 0)) { audio.dogZoomies(); s.nextChug = current + 260; }
       if (["basketballdribble", "curling"].includes(s.type) && current >= (s.nextChug || 0)) { audio.hitPins(1); s.nextChug = current + 360; }
+      if (s.type === "wheelchairsprint" && current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 460; }
       if (t >= 1) {
         pin.removed = true;
         if ((s.type === "rocket" || s.type === "firework") && !game.pins.some(p => p !== pin && p.rocket && !p.removed && (p.rocket.type === "rocket" || p.rocket.type === "firework"))) audio.stopRocketFlight();
