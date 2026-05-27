@@ -3504,6 +3504,477 @@
     lines.forEach((l, i) => ctx.fillText(l, x, y + (i - (lines.length - 1) / 2) * lineHeight));
   }
 
+
+// v1.3.0 special-animation updates
+const V130_STATIC_TYPES = new Set(["jogstrollerparent", "jogstrollersolo", "wheelchairstick", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"]);
+while (PIN_SPECIAL_TYPES.includes("wheelchairsprint")) PIN_SPECIAL_TYPES.splice(PIN_SPECIAL_TYPES.indexOf("wheelchairsprint"), 1);
+["jogstrollerparent", "jogstrollersolo", "wheelchairstick", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"].forEach((type) => {
+  if (!PIN_SPECIAL_TYPES.includes(type)) PIN_SPECIAL_TYPES.push(type);
+});
+
+const v130OriginalLaunchSpecialPin = launchSpecialPin;
+launchSpecialPin = function(pin, current, forcedType = null) {
+  v130OriginalLaunchSpecialPin(pin, current, forcedType);
+  const s = pin.rocket;
+  if (!s) return;
+  if (s.type === "popcorn") {
+    s.duration = randInt(1900, 2500);
+    s.finishAt = current + s.duration;
+    s.popAt = current + s.duration * rand(0.26, 0.34);
+  } else if (s.type === "jogstrollerparent" || s.type === "jogstrollersolo") {
+    s.duration = randInt(2400, 3200);
+    s.finishAt = current + s.duration;
+  } else if (s.type === "wheelchairstick" || s.type === "wheelchairhumanA" || s.type === "wheelchairhumanB") {
+    s.duration = randInt(2500, 3300);
+    s.finishAt = current + s.duration;
+  } else if (s.type === "maplegrow") {
+    s.duration = randInt(2800, 3600);
+    s.finishAt = current + s.duration;
+  } else if (s.type === "vanlift") {
+    s.duration = randInt(3200, 3900);
+    s.finishAt = current + s.duration;
+  }
+};
+
+const v130OriginalUpdateSpecialPin = updateSpecialPin;
+updateSpecialPin = function(pin, current, dt) {
+  const s = pin.rocket;
+  if (s && V130_STATIC_TYPES.has(s.type)) {
+    if (current >= s.finishAt) pin.removed = true;
+    return;
+  }
+  return v130OriginalUpdateSpecialPin(pin, current, dt);
+};
+
+const v130OriginalDrawSpecialPin = drawSpecialPin;
+drawSpecialPin = function(pin, current) {
+  const type = pin.rocket?.type;
+  if (type === "popcorn") return drawPopcornPinV130(pin, current);
+  if (type === "jogstrollerparent") return drawJogStrollerParentPinV130(pin, current);
+  if (type === "jogstrollersolo") return drawJogStrollerSoloPinV130(pin, current);
+  if (type === "wheelchairstick") return drawWheelchairPinV130(pin, current, "stick");
+  if (type === "wheelchairhumanA") return drawWheelchairPinV130(pin, current, "humanA");
+  if (type === "wheelchairhumanB") return drawWheelchairPinV130(pin, current, "humanB");
+  if (type === "maplegrow") return drawStarTreePinV130(pin, current);
+  if (type === "vanlift") return drawVanLiftPinV130(pin, current);
+  return v130OriginalDrawSpecialPin(pin, current);
+};
+
+function drawGroundLineV130(y, color = "rgba(90,110,130,0.32)") {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(layout.wallLeft + 10, y);
+  ctx.lineTo(layout.wallRight - 10, y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawPopcornPinV130(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  const duration = pin.rocket.duration;
+  const popStart = duration * 0.26;
+  const burst = easeOut(clamp((age - popStart) / 400, 0, 1));
+  const bucketW = layout.pinW * 1.45;
+  const bucketH = layout.pinH * 0.74;
+  ctx.save();
+  ctx.translate(pin.x, pin.y + layout.pinH * 0.08);
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = "#244568";
+  ctx.beginPath(); ctx.ellipse(0, bucketH * 0.78, bucketW * 0.64, bucketH * 0.12, 0, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#ff7070";
+  roundRect(ctx, -bucketW * 0.5, 0, bucketW, bucketH, 6); ctx.fill();
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
+  [-0.28, 0, 0.28].forEach((off) => { ctx.beginPath(); ctx.moveTo(bucketW * off, 4); ctx.lineTo(bucketW * off, bucketH * 0.90); ctx.stroke(); });
+  ctx.fillStyle = "#fff8d7";
+  const kernels = [[-0.44,-0.03,.18],[-0.28,-0.16,.21],[-0.10,-0.08,.22],[0.10,-0.18,.21],[0.30,-0.07,.19],[0.45,-0.20,.17],[-0.02,-0.30,.25]];
+  kernels.forEach(([ox, oy, rr], i) => {
+    const r = bucketW * rr * (age > popStart ? 1 + Math.sin(age / 120) * 0.03 : 0.78);
+    const lift = burst * (layout.pinH * (0.20 + Math.abs(i - 3) * 0.03)) * (i % 2 ? 0.82 : 1.02);
+    const wiggle = Math.sin(age / 150 + i) * 2.5 * burst;
+    const x = bucketW * ox + wiggle;
+    const y = bucketH * oy - lift;
+    ctx.beginPath();
+    ctx.arc(x - r * 0.20, y, r * 0.72, 0, TAU);
+    ctx.arc(x + r * 0.18, y - r * 0.08, r * 0.62, 0, TAU);
+    ctx.arc(x + r * 0.05, y + r * 0.20, r * 0.58, 0, TAU);
+    ctx.fill();
+  });
+  if (age > popStart) {
+    ctx.fillStyle = "#ffe36d";
+    for (let i = 0; i < 8; i += 1) {
+      const sparkleT = clamp((age - popStart - i * 40) / 800, 0, 1);
+      if (sparkleT > 0 && sparkleT < 1) drawStar(Math.cos(i * 1.7) * bucketW * 0.55, -bucketH * 0.20 + Math.sin(i * 1.1) * bucketH * 0.36, 4 + sparkleT * 3, 2, 5);
+    }
+  }
+  ctx.restore();
+}
+
+function drawJoggingStrollerV130(cx, cy, s, age, withParent) {
+  const frame = "#8e98a4";
+  const wheelSpin = age / 220;
+  const bob = Math.sin(age / 190) * s * 0.015;
+  const x = cx + Math.sin(age / 900) * s * 0.06;
+  const y = cy + bob;
+  const ground = y + s * 0.50;
+  const rearX = x + s * 0.24;
+  const rearY = ground - s * 0.02;
+  const frontX = x - s * 0.58;
+  const frontY = ground - s * 0.02;
+  const rearR = s * 0.22;
+  const frontR = s * 0.18;
+  ctx.save(); ctx.globalAlpha = 0.24; ctx.fillStyle = "#244568"; ctx.beginPath(); ctx.ellipse(x - s * 0.05, ground + s * 0.12, s * 0.95, s * 0.09, 0, 0, TAU); ctx.fill(); ctx.restore();
+  [
+    { wx: rearX - s * 0.10, wy: rearY, r: rearR },
+    { wx: rearX + s * 0.27, wy: rearY, r: rearR * 0.92 },
+    { wx: frontX, wy: frontY, r: frontR }
+  ].forEach((wheel, idx) => {
+    ctx.save();
+    ctx.translate(wheel.wx, wheel.wy);
+    ctx.strokeStyle = "#0f141b";
+    ctx.lineWidth = Math.max(4, s * 0.030);
+    ctx.beginPath(); ctx.arc(0, 0, wheel.r, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = "#9099a6";
+    ctx.lineWidth = Math.max(1.2, s * 0.009);
+    for (let i = 0; i < 8; i += 1) {
+      const a = wheelSpin + i * TAU / 8 + idx * 0.2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * wheel.r * 0.82, Math.sin(a) * wheel.r * 0.82); ctx.stroke();
+    }
+    ctx.fillStyle = "#65707c";
+    ctx.beginPath(); ctx.arc(0, 0, wheel.r * 0.10, 0, TAU); ctx.fill();
+    ctx.restore();
+  });
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = frame;
+  ctx.lineWidth = Math.max(5, s * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(frontX, frontY - frontR * 0.35);
+  ctx.lineTo(x - s * 0.05, y + s * 0.20);
+  ctx.lineTo(rearX + s * 0.18, rearY - rearR * 0.35);
+  ctx.lineTo(x + s * 0.58, y - s * 0.58);
+  ctx.stroke();
+  ctx.strokeStyle = "#2b333d";
+  ctx.lineWidth = Math.max(4, s * 0.030);
+  ctx.beginPath(); ctx.moveTo(x + s * 0.48, y - s * 0.56); ctx.lineTo(x + s * 0.78, y - s * 0.68); ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.fillStyle = withParent ? "#222830" : "#11161c";
+  ctx.strokeStyle = "#14181f";
+  ctx.lineWidth = Math.max(2, s * 0.016);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.40, y - s * 0.02);
+  ctx.lineTo(x + s * 0.20, y + s * 0.06);
+  ctx.lineTo(x + s * 0.02, y + s * 0.25);
+  ctx.lineTo(x - s * 0.46, y + s * 0.20);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  const canopyGrad = ctx.createLinearGradient(x - s * 0.50, y - s * 0.56, x + s * 0.30, y - s * 0.16);
+  canopyGrad.addColorStop(0, withParent ? "#3a424e" : "#252a31");
+  canopyGrad.addColorStop(1, withParent ? "#171b21" : "#05070a");
+  ctx.fillStyle = canopyGrad;
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.50, y - s * 0.16);
+  ctx.quadraticCurveTo(x - s * 0.35, y - s * 0.62, x + s * 0.24, y - s * 0.50);
+  ctx.quadraticCurveTo(x + s * 0.34, y - s * 0.30, x + s * 0.18, y - s * 0.08);
+  ctx.lineTo(x - s * 0.50, y - s * 0.16);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+  if (withParent) {
+    const stride = Math.sin(age / 185);
+    const opposite = Math.sin(age / 185 + Math.PI);
+    const px = x + s * 0.92;
+    const py = y - s * 0.23;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#d69b76";
+    ctx.lineWidth = Math.max(5, s * 0.035);
+    ctx.beginPath(); ctx.moveTo(px - s * 0.08, py - s * 0.20); ctx.lineTo(px - s * 0.42, py - s * 0.27); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px - s * 0.06, py - s * 0.12); ctx.lineTo(px - s * 0.36, py - s * 0.24); ctx.stroke();
+    ctx.fillStyle = "#ffb6c8";
+    ctx.beginPath(); ctx.ellipse(px, py - s * 0.04, s * 0.13, s * 0.26, -0.20, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#d69b76";
+    ctx.beginPath(); ctx.arc(px - s * 0.06, py - s * 0.38, s * 0.095, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2a1b13";
+    ctx.lineWidth = Math.max(2.4, s * 0.018);
+    for (let i = 0; i < 5; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(px - s * 0.10 + i * s * 0.02, py - s * 0.47);
+      ctx.quadraticCurveTo(px + s * 0.05 + i * s * 0.02, py - s * 0.58 - Math.abs(stride) * s * 0.08, px + s * 0.18 + i * s * 0.02, py - s * 0.44);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#172033";
+    ctx.lineWidth = Math.max(6, s * 0.045);
+    ctx.beginPath(); ctx.moveTo(px, py + s * 0.20); ctx.lineTo(px - s * (0.10 + 0.20 * stride), py + s * 0.42); ctx.lineTo(px - s * (0.30 + 0.22 * stride), py + s * 0.58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px + s * 0.02, py + s * 0.18); ctx.lineTo(px + s * (0.12 + 0.16 * opposite), py + s * 0.40); ctx.lineTo(px + s * (0.26 + 0.25 * opposite), py + s * 0.58); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawJogStrollerParentPinV130(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  drawGroundLineV130(pin.y + 78);
+  drawForwardArrowTrail(pin.x - 100, pin.y + 48, pin.x + 105, pin.y + 48, "rgba(255,255,255,0.42)");
+  drawJoggingStrollerV130(pin.x - 18, pin.y + 18, 105, age, true);
+}
+
+function drawJogStrollerSoloPinV130(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  drawGroundLineV130(pin.y + 78);
+  drawForwardArrowTrail(pin.x - 116, pin.y + 48, pin.x + 90, pin.y + 48, "rgba(255,255,255,0.38)");
+  drawJoggingStrollerV130(pin.x + 2, pin.y + 20, 116, age, false);
+}
+
+function drawWheelchairRacerV130(cx, cy, s, age, variant) {
+  const rearR = s * 0.36;
+  const frontR = s * 0.16;
+  const rearX = cx - s * 0.12;
+  const rearY = cy;
+  const frontX = cx + s * 0.70;
+  const frontY = cy + s * 0.06;
+  const push = Math.sin(age / 280);
+  ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = "#19324d"; ctx.beginPath(); ctx.ellipse(cx + s * 0.18, cy + rearR * 0.86, s * 0.82, s * 0.11, 0, 0, TAU); ctx.fill(); ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = "#202731";
+  ctx.lineWidth = Math.max(3, s * 0.03);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(rearX + rearR * 0.08, rearY - rearR * 0.05);
+  ctx.lineTo(cx + s * 0.18, cy - s * 0.22);
+  ctx.lineTo(frontX - frontR * 0.20, frontY - frontR * 0.30);
+  ctx.lineTo(frontX, frontY);
+  ctx.lineTo(cx + s * 0.10, cy - s * 0.02);
+  ctx.lineTo(rearX + rearR * 0.20, rearY + rearR * 0.22);
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + s * 0.02, cy - s * 0.14); ctx.lineTo(cx - s * 0.12, cy - s * 0.28); ctx.lineTo(cx + s * 0.03, cy - s * 0.28); ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.translate(rearX, rearY);
+  ctx.strokeStyle = "#1a1a1a";
+  ctx.lineWidth = Math.max(4, s * 0.038);
+  ctx.beginPath(); ctx.arc(0, 0, rearR, 0, TAU); ctx.stroke();
+  if (variant !== "humanB") {
+    const g = ctx.createRadialGradient(-rearR * 0.26, -rearR * 0.28, rearR * 0.08, 0, 0, rearR * 0.96);
+    g.addColorStop(0, "#6e7681"); g.addColorStop(0.38, "#242b34"); g.addColorStop(1, "#0f1218");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rearR * 0.90, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#ef3340"; ctx.beginPath(); ctx.moveTo(-rearR * 0.70, 0); ctx.lineTo(-rearR * 0.14, -rearR * 0.28); ctx.lineTo(-rearR * 0.08, rearR * 0.22); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.strokeStyle = "#757d88";
+    ctx.lineWidth = Math.max(1.5, s * 0.012);
+    for (let i = 0; i < 9; i += 1) { const a = age / 500 + i * TAU / 9; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * rearR * 0.88, Math.sin(a) * rearR * 0.88); ctx.stroke(); }
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.translate(frontX, frontY);
+  ctx.strokeStyle = "#1d1d1d"; ctx.lineWidth = Math.max(3, s * 0.024); ctx.beginPath(); ctx.arc(0, 0, frontR, 0, TAU); ctx.stroke();
+  ctx.restore();
+  const shoulderX = rearX + rearR * 0.10;
+  const shoulderY = rearY - rearR * 0.96;
+  const armFront = { x: rearX + Math.cos(-0.55 + push * 0.36) * rearR * 0.82, y: rearY + Math.sin(-0.55 + push * 0.36) * rearR * 0.82 };
+  const armBack = { x: rearX + Math.cos(0.55 + push * 0.36) * rearR * 0.84, y: rearY + Math.sin(0.55 + push * 0.36) * rearR * 0.84 };
+  if (variant === "stick") {
+    const headX = shoulderX + s * 0.13; const headY = shoulderY - s * 0.18;
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#252a31"; ctx.lineWidth = Math.max(4, s * 0.028);
+    ctx.beginPath(); ctx.moveTo(shoulderX - s * 0.14, shoulderY + s * 0.12); ctx.lineTo(shoulderX + s * 0.08, shoulderY - s * 0.08); ctx.lineTo(headX, headY + s * 0.08); ctx.stroke();
+    ctx.beginPath(); ctx.arc(headX, headY, s * 0.085, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(shoulderX + s * 0.04, shoulderY - s * 0.04); ctx.lineTo((shoulderX + armFront.x) / 2, (shoulderY + armFront.y) / 2); ctx.lineTo(armFront.x, armFront.y); ctx.moveTo(shoulderX - s * 0.04, shoulderY + s * 0.04); ctx.lineTo((shoulderX + armBack.x) / 2 - s * 0.06, (shoulderY + armBack.y) / 2); ctx.lineTo(armBack.x, armBack.y); ctx.stroke();
+    ctx.restore();
+  } else if (variant === "humanA") {
+    const headX = shoulderX + s * 0.15; const headY = shoulderY - s * 0.16;
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.fillStyle = "#0e5bb5";
+    ctx.beginPath(); ctx.moveTo(shoulderX - s * 0.12, shoulderY + s * 0.11); ctx.quadraticCurveTo(shoulderX - s * 0.02, shoulderY - s * 0.18, shoulderX + s * 0.10, shoulderY - s * 0.18); ctx.quadraticCurveTo(shoulderX + s * 0.17, shoulderY - s * 0.16, shoulderX + s * 0.18, shoulderY - s * 0.09); ctx.quadraticCurveTo(shoulderX + s * 0.15, shoulderY + s * 0.03, shoulderX + s * 0.08, shoulderY + s * 0.09); ctx.quadraticCurveTo(shoulderX - s * 0.02, shoulderY + s * 0.15, shoulderX - s * 0.12, shoulderY + s * 0.11); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#c88f6b"; ctx.lineWidth = Math.max(5, s * 0.040);
+    ctx.beginPath(); ctx.moveTo(shoulderX + s * 0.03, shoulderY - s * 0.03); ctx.lineTo((shoulderX + armFront.x) / 2, (shoulderY + armFront.y) / 2); ctx.lineTo(armFront.x, armFront.y); ctx.moveTo(shoulderX - s * 0.04, shoulderY + s * 0.02); ctx.lineTo((shoulderX + armBack.x) / 2 - s * 0.06, (shoulderY + armBack.y) / 2 + s * 0.01); ctx.lineTo(armBack.x, armBack.y); ctx.stroke();
+    ctx.fillStyle = "#c88f6b"; ctx.beginPath(); ctx.arc(headX, headY, s * 0.075, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f4f8ff"; ctx.beginPath(); ctx.ellipse(headX - s * 0.005, headY - s * 0.040, s * 0.085, s * 0.045, -0.20, Math.PI, TAU * 1.02); ctx.fill();
+    ctx.restore();
+  } else {
+    const headX = shoulderX + s * 0.10; const headY = shoulderY - s * 0.17;
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.fillStyle = "#d42334";
+    ctx.beginPath(); ctx.moveTo(shoulderX - s * 0.13, shoulderY + s * 0.11); ctx.quadraticCurveTo(shoulderX - s * 0.04, shoulderY - s * 0.19, shoulderX + s * 0.08, shoulderY - s * 0.20); ctx.quadraticCurveTo(shoulderX + s * 0.15, shoulderY - s * 0.19, shoulderX + s * 0.17, shoulderY - s * 0.10); ctx.quadraticCurveTo(shoulderX + s * 0.14, shoulderY + s * 0.04, shoulderX + s * 0.06, shoulderY + s * 0.10); ctx.quadraticCurveTo(shoulderX - s * 0.02, shoulderY + s * 0.14, shoulderX - s * 0.13, shoulderY + s * 0.11); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#d2a07d"; ctx.lineWidth = Math.max(5, s * 0.042);
+    ctx.beginPath(); ctx.moveTo(shoulderX + s * 0.02, shoulderY - s * 0.04); ctx.lineTo((shoulderX + armFront.x) / 2, (shoulderY + armFront.y) / 2 - s * 0.02); ctx.lineTo(armFront.x, armFront.y); ctx.moveTo(shoulderX - s * 0.07, shoulderY + s * 0.03); ctx.lineTo((shoulderX + armBack.x) / 2 - s * 0.08, (shoulderY + armBack.y) / 2 + s * 0.02); ctx.lineTo(armBack.x, armBack.y); ctx.stroke();
+    ctx.fillStyle = "#d2a07d"; ctx.beginPath(); ctx.arc(headX, headY, s * 0.078, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2e211b"; ctx.lineWidth = Math.max(2.4, s * 0.016);
+    for (let i = 0; i < 5; i += 1) { ctx.beginPath(); ctx.moveTo(headX - s * 0.04 + i * s * 0.02, headY - s * 0.07); ctx.quadraticCurveTo(headX - s * 0.07 + i * s * 0.03, headY - s * 0.13, headX + s * 0.01 + i * s * 0.02, headY - s * 0.10); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+
+function drawWheelchairPinV130(pin, current, variant) {
+  const age = current - pin.rocket.startedAt;
+  const s = layout.pinH * 1.58;
+  const t = (age % pin.rocket.duration) / pin.rocket.duration;
+  const cx = pin.x - s * 0.10 + Math.sin(t * TAU) * s * 0.08;
+  const cy = pin.y + s * 0.02;
+  drawForwardArrowTrail(cx - s * 0.30, cy - s * 0.08, cx + s * 0.78, cy - s * 0.08, "rgba(255,255,255,0.30)");
+  drawWheelchairRacerV130(cx, cy, s, age, variant);
+}
+
+function drawStarLeafV130(x, y, r, rot) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.lineTo(r * 0.18, -r * 0.36);
+  ctx.lineTo(r * 0.55, -r * 0.56);
+  ctx.lineTo(r * 0.38, -r * 0.10);
+  ctx.lineTo(r * 0.88, -r * 0.02);
+  ctx.lineTo(r * 0.32, r * 0.16);
+  ctx.lineTo(r * 0.44, r * 0.65);
+  ctx.lineTo(0, r * 0.36);
+  ctx.lineTo(-r * 0.44, r * 0.65);
+  ctx.lineTo(-r * 0.32, r * 0.16);
+  ctx.lineTo(-r * 0.88, -r * 0.02);
+  ctx.lineTo(-r * 0.38, -r * 0.10);
+  ctx.lineTo(-r * 0.55, -r * 0.56);
+  ctx.lineTo(-r * 0.18, -r * 0.36);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawStarTreePinV130(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  const grow = easeOut(clamp(age / (pin.rocket.duration * 0.74), 0, 1));
+  const sway = Math.sin(age / 520) * 0.04;
+  const baseX = pin.x;
+  const baseY = pin.y + 88;
+  drawGroundLineV130(baseY + 4, "rgba(70,110,64,0.35)");
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  ctx.scale(1, grow);
+  ctx.rotate(sway);
+  ctx.strokeStyle = "#7a4a25";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -128); ctx.stroke();
+  ctx.lineWidth = 4;
+  [[-18,-108],[20,-106],[-34,-96],[38,-94],[-46,-82],[50,-80],[-28,-66],[28,-64],[-14,-52],[14,-50],[-6,-118],[8,-120]].forEach(([bx, by], i) => {
+    ctx.beginPath(); ctx.moveTo(0, by + 18); ctx.quadraticCurveTo(bx * 0.38, by + (i % 2 ? -4 : 4), bx, by); ctx.stroke();
+  });
+  ctx.restore();
+  const crown = clamp((grow - 0.22) / 0.78, 0, 1);
+  ctx.save();
+  ctx.translate(baseX, baseY - 118 * grow);
+  ctx.scale(crown, crown);
+  const colors = ["#2f9e44", "#3fb950", "#76c043", "#e0772b", "#d63f2f", "#5bb04e"];
+  [[0,-72,26],[-18,-60,24],[18,-60,24],[-38,-54,22],[38,-52,22],[-54,-38,20],[54,-36,20],[-24,-34,22],[24,-34,22],[0,-30,24],[-62,-18,20],[62,-16,20],[-40,-8,22],[40,-6,22],[-18,8,24],[18,8,24],[0,14,26],[-48,18,18],[48,20,18],[-26,-80,18],[26,-78,18]].forEach(([lx, ly, r], i) => {
+    ctx.fillStyle = colors[i % colors.length];
+    drawStarLeafV130(lx, ly, r * (0.78 + 0.10 * Math.sin(age / 300 + i)), age / 860 + i * 0.22);
+  });
+  ctx.restore();
+}
+
+function drawTinyWheelchairV130(cx, cy, s, age, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const rearR = s * 0.18;
+  const frontR = s * 0.075;
+  const rearX = cx - s * 0.12;
+  const rearY = cy;
+  const frontX = cx + s * 0.28;
+  const frontY = cy + s * 0.04;
+  ctx.strokeStyle = "#1e2632";
+  ctx.lineWidth = Math.max(2, s * 0.022);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(rearX, rearY); ctx.lineTo(cx, cy - s * 0.17); ctx.lineTo(frontX, frontY); ctx.lineTo(cx + s * 0.02, cy); ctx.stroke();
+  ctx.beginPath(); ctx.arc(rearX, rearY, rearR, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(frontX, frontY, frontR, 0, TAU); ctx.stroke();
+  ctx.fillStyle = "#4b7bd8"; ctx.beginPath(); ctx.ellipse(cx - s * 0.02, cy - s * 0.20, s * 0.09, s * 0.13, -0.45, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#d69b76"; ctx.beginPath(); ctx.arc(cx + s * 0.05, cy - s * 0.36, s * 0.065, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawAccessibleVanV130(cx, cy, s, driveT) {
+  const x = cx + driveT * s * 2.2;
+  ctx.save();
+  ctx.translate(x, cy);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.fillStyle = "#8fd4ff";
+  ctx.strokeStyle = "#28516f";
+  ctx.lineWidth = Math.max(2, s * 0.018);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.64, -s * 0.15);
+  ctx.lineTo(-s * 0.42, -s * 0.38);
+  ctx.lineTo(s * 0.52, -s * 0.38);
+  ctx.quadraticCurveTo(s * 0.74, -s * 0.32, s * 0.74, -s * 0.08);
+  ctx.lineTo(s * 0.74, s * 0.28);
+  ctx.lineTo(-s * 0.70, s * 0.28);
+  ctx.lineTo(-s * 0.70, -s * 0.15);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#eaf8ff";
+  roundRect(ctx, -s * 0.35, -s * 0.31, s * 0.30, s * 0.15, 5); ctx.fill(); ctx.stroke();
+  roundRect(ctx, s * 0.00, -s * 0.31, s * 0.28, s * 0.15, 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; roundRect(ctx, s * 0.30, -s * 0.10, s * 0.20, s * 0.20, 5); ctx.fill();
+  ctx.strokeStyle = "#1976c9"; ctx.lineWidth = Math.max(1.6, s * 0.014); ctx.beginPath(); ctx.arc(s * 0.40, 0, s * 0.055, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(s * 0.40, s * 0.055); ctx.lineTo(s * 0.36, s * 0.12); ctx.lineTo(s * 0.48, s * 0.12); ctx.stroke();
+  ctx.fillStyle = "#1d2330";
+  [-s * 0.42, s * 0.48].forEach((wx) => { ctx.beginPath(); ctx.arc(wx, s * 0.31, s * 0.13, 0, TAU); ctx.fill(); ctx.fillStyle = "#c9d1dc"; ctx.beginPath(); ctx.arc(wx, s * 0.31, s * 0.055, 0, TAU); ctx.fill(); ctx.fillStyle = "#1d2330"; });
+  ctx.restore();
+}
+
+function drawVanLiftPinV130(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  const duration = pin.rocket.duration;
+  const t = clamp(age / duration, 0, 1);
+  const vanBaseX = pin.x + 18;
+  const vanBaseY = pin.y + 38;
+  const driveT = clamp((t - 0.82) / 0.18, 0, 1);
+  drawGroundLineV130(pin.y + 92, "rgba(75,95,115,0.35)");
+  if (driveT > 0.05) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.70)";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 3; i += 1) { ctx.beginPath(); ctx.moveTo(26 + i * 32, pin.y + 36 + i * 14); ctx.lineTo(78 + i * 42, pin.y + 36 + i * 14); ctx.stroke(); }
+    ctx.restore();
+  }
+  drawAccessibleVanV130(vanBaseX, vanBaseY, 120, easeOut(driveT));
+  const lower = pin.y + 92;
+  const platformX = vanBaseX - 120 * 0.88 + easeOut(clamp(t / 0.22, 0, 1)) * 36;
+  let platformY = lower;
+  if (t > 0.40 && t < 0.62) platformY = lerp(lower, vanBaseY + 120 * 0.08, easeInOut((t - 0.40) / 0.22));
+  if (t >= 0.62) platformY = vanBaseY + 120 * 0.08;
+  const fold = clamp((t - 0.66) / 0.14, 0, 1);
+  if (driveT < 0.80) {
+    ctx.save();
+    ctx.strokeStyle = "#4d5f6f";
+    ctx.fillStyle = "#c4cbd2";
+    ctx.lineWidth = 3;
+    const px = platformX + fold * 28;
+    const pw = 70 * (1 - fold * 0.65);
+    roundRect(ctx, px - 35, platformY - 5, pw, 10, 4); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#687785";
+    ctx.beginPath(); ctx.moveTo(px - 28, platformY - 5); ctx.lineTo(vanBaseX - 70, vanBaseY + 7); ctx.moveTo(px + 25, platformY - 5); ctx.lineTo(vanBaseX - 42, vanBaseY + 7); ctx.stroke();
+    ctx.restore();
+  }
+  const approach = easeOut(clamp(t / 0.32, 0, 1));
+  const chairX = lerp(pin.x - 122, platformX - 5, approach);
+  const chairY = platformY - 14;
+  const inside = clamp((t - 0.62) / 0.18, 0, 1);
+  const finalX = lerp(chairX, vanBaseX - 38, easeInOut(inside));
+  const riderFade = clamp((t - 0.68) / 0.10, 0, 1);
+  const alpha = 1 - riderFade;
+  if (alpha > 0.02) drawTinyWheelchairV130(finalX, chairY, 95, age, alpha);
+  if (t > 0.74 && t < 0.88) {
+    ctx.save();
+    ctx.fillStyle = "#ffe36d";
+    for (let i = 0; i < 6; i += 1) drawStar(vanBaseX - 62 + Math.cos(i) * 20, vanBaseY + 16 + Math.sin(i * 1.4) * 16, 5, 2.4, 5);
+    ctx.restore();
+  }
+}
+
   let lastFrame = nowMs();
   function loop(current) {
     update(current);
