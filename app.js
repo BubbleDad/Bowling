@@ -24,7 +24,7 @@
   const MAX_ROLLS_PER_LEVEL = 8;
   const SPECIAL_PINS_PER_LEVEL = MAX_ROLLS_PER_LEVEL;
   const SPECIAL_BALLS_PER_LEVEL = 0;
-  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "pinatastar", "balloon", "firework", "jelly", "catpaw", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "baseballcatch", "bowlingstrike", "jogstrollerparent", "jogstrollersolo", "wheelchairstick", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"];
+  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "pinatastar", "balloon", "firework", "jelly", "catpaw", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "baseballcatch", "bowlingstrike", "jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"];
   const BALL_SPECIAL_TYPES = [];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
   const SFX_GAIN = 4.1;
@@ -1161,7 +1161,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2000, 2900), footballthrow: randInt(1700, 2500), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2500, 3200), jogstrollersolo: randInt(2400, 3100), wheelchairstick: randInt(2500, 3300), wheelchairhumanA: randInt(2500, 3300), wheelchairhumanB: randInt(2500, 3300), maplegrow: randInt(2800, 3600), vanlift: randInt(3200, 3900), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2000, 2900), footballthrow: randInt(1700, 2500), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2200, 2800), wheelchairhumanA: randInt(2200, 2800), wheelchairhumanB: randInt(2200, 2800), maplegrow: randInt(2800, 3600), vanlift: randInt(3400, 4000), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
     const duration = durationMap[type] || randInt(1700, 2500);
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -1263,7 +1263,7 @@
       audio.raceCarRev();
       pin.rocket.nextChug = current + 340;
       pin.rocket.path = [{ x: pin.x, y: pin.y }, { x: layout.wallLeft + layout.pinH * 0.65, y: pin.y + rand(-layout.pinH * 0.08, layout.pinH * 0.08) }, { x: layout.wallRight - layout.pinH * 0.65, y: pin.y + rand(-layout.pinH * 0.08, layout.pinH * 0.08) }, { x: exitX, y: pin.y + rand(-layout.pinH * 0.10, layout.pinH * 0.10) }];
-    } else if (["wheelchairstick", "wheelchairhumanA", "wheelchairhumanB"].includes(type)) {
+    } else if (["wheelchairhumanA", "wheelchairhumanB"].includes(type)) {
       audio.raceCarRev();
       pin.rocket.nextChug = current + 460;
     } else if (type === "vanlift") {
@@ -1351,8 +1351,8 @@
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (["jogstrollerparent", "jogstrollersolo", "wheelchairstick", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"].includes(s.type)) {
-      if (s.type === "wheelchairstick" || s.type === "wheelchairhumanA" || s.type === "wheelchairhumanB") {
+    if (["jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift"].includes(s.type)) {
+      if (s.type === "wheelchairhumanA" || s.type === "wheelchairhumanB") {
         if (current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 520; }
       }
       if (t >= 1) pin.removed = true;
@@ -1923,8 +1923,6 @@
     if (type === "baseballcatch") return drawBaseballCatchPin(pin, current);
     if (type === "bowlingstrike") return drawBowlingStrikePin(pin, current);
     if (type === "jogstrollerparent") return drawJogStrollerParentPin(pin, current);
-    if (type === "jogstrollersolo") return drawJogStrollerSoloPin(pin, current);
-    if (type === "wheelchairstick") return drawWheelchairGalleryPin(pin, current, "stick");
     if (type === "wheelchairhumanA") return drawWheelchairGalleryPin(pin, current, "humanA");
     if (type === "wheelchairhumanB") return drawWheelchairGalleryPin(pin, current, "humanB");
     if (type === "maplegrow") return drawStarTreePin(pin, current);
@@ -3123,9 +3121,13 @@ function drawJoggingParent(cx, cy, s, age) {
 
 function drawJogStrollerParentPin(pin, current) {
   const age = current - pin.rocket.startedAt;
+  const travelT = easeInOut(clamp(age / pin.rocket.duration, 0, 1));
+  const startX = layout.wallRight + 120;
+  const endX = layout.wallLeft - 140;
+  const drawX = lerp(startX, endX, travelT);
   drawGroundLineV131(pin.y + 78);
-  drawForwardArrowTrail(pin.x - 100, pin.y + 48, pin.x + 105, pin.y + 48, "rgba(255,255,255,0.42)");
-  drawJoggingStroller(pin.x - 18, pin.y + 18, 105, age, true);
+  drawForwardArrowTrail(drawX + 115, pin.y + 48, drawX - 95, pin.y + 48, "rgba(255,255,255,0.42)");
+  drawJoggingStroller(drawX, pin.y + 18, 105, age, true);
 }
 
 function drawJogStrollerSoloPin(pin, current) {
@@ -3138,10 +3140,12 @@ function drawJogStrollerSoloPin(pin, current) {
 function drawWheelchairGalleryPin(pin, current, variant) {
   const age = current - pin.rocket.startedAt;
   const s = layout.pinH * 1.58;
-  const t = (age % pin.rocket.duration) / pin.rocket.duration;
-  const cx = pin.x - s * 0.10 + Math.sin(t * TAU) * s * 0.08;
+  const travelT = easeInOut(clamp(age / pin.rocket.duration, 0, 1));
+  const startX = layout.wallLeft - s * 1.05;
+  const endX = layout.wallRight + s * 1.10;
+  const cx = lerp(startX, endX, travelT);
   const cy = pin.y + s * 0.02;
-  drawForwardArrowTrail(cx - s * 0.30, cy - s * 0.08, cx + s * 0.78, cy - s * 0.08, "rgba(255,255,255,0.30)");
+  drawForwardArrowTrail(cx - s * 0.58, cy - s * 0.08, cx + s * 0.86, cy - s * 0.08, "rgba(255,255,255,0.30)");
   drawWheelchairRacerGallery(cx, cy, s, age, variant);
 }
 
@@ -3341,8 +3345,8 @@ function drawTinyWheelchairForVan(cx, cy, s, age, alpha = 1) {
   ctx.restore();
 }
 
-function drawAccessibleVan(cx, cy, s, driveT) {
-  const x = cx + driveT * s * 2.2;
+function drawAccessibleVan(cx, cy, s) {
+  const x = cx;
   ctx.save();
   ctx.translate(x, cy);
   ctx.lineJoin = "round";
@@ -3374,48 +3378,58 @@ function drawAccessibleVan(cx, cy, s, driveT) {
 function drawVanLiftPin(pin, current) {
   const age = current - pin.rocket.startedAt;
   const t = clamp(age / pin.rocket.duration, 0, 1);
-  const vanBaseX = pin.x + 18;
+  const vanSize = 120;
+  const startVanX = layout.wallRight - vanSize * 0.84;
   const vanBaseY = pin.y + 38;
-  const driveT = clamp((t - 0.82) / 0.18, 0, 1);
+  const drivePhase = clamp((t - 0.70) / 0.30, 0, 1);
+  const vanEndX = layout.wallLeft - vanSize * 0.95;
+  const vanX = lerp(startVanX, vanEndX, easeInOut(drivePhase));
   drawGroundLineV131(pin.y + 92, "rgba(75,95,115,0.35)");
-  if (driveT > 0.05) {
+  if (drivePhase > 0.05) {
     ctx.save();
     ctx.strokeStyle = "rgba(255,255,255,0.70)";
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
-    for (let i = 0; i < 3; i += 1) { ctx.beginPath(); ctx.moveTo(26 + i * 32, pin.y + 36 + i * 14); ctx.lineTo(78 + i * 42, pin.y + 36 + i * 14); ctx.stroke(); }
+    const streakBase = Math.min(view.w - 12, startVanX + vanSize * 0.35);
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(streakBase + i * 18, pin.y + 34 + i * 14);
+      ctx.lineTo(streakBase + 56 + i * 18, pin.y + 34 + i * 14);
+      ctx.stroke();
+    }
     ctx.restore();
   }
-  drawAccessibleVan(vanBaseX, vanBaseY, 120, easeOut(driveT));
+  drawAccessibleVan(vanX, vanBaseY, vanSize);
   const lower = pin.y + 92;
-  const platformX = vanBaseX - 120 * 0.88 + easeOut(clamp(t / 0.22, 0, 1)) * 36;
+  const platformBaseX = startVanX - vanSize * 0.88 + easeOut(clamp(t / 0.22, 0, 1)) * 36;
   let platformY = lower;
-  if (t > 0.40 && t < 0.62) platformY = lerp(lower, vanBaseY + 120 * 0.08, easeInOut((t - 0.40) / 0.22));
-  if (t >= 0.62) platformY = vanBaseY + 120 * 0.08;
-  const fold = clamp((t - 0.66) / 0.14, 0, 1);
-  if (driveT < 0.80) {
+  if (t > 0.40 && t < 0.62) platformY = lerp(lower, vanBaseY + vanSize * 0.08, easeInOut((t - 0.40) / 0.22));
+  if (t >= 0.62) platformY = vanBaseY + vanSize * 0.08;
+  const fold = clamp((t - 0.64) / 0.12, 0, 1);
+  if (drivePhase < 0.02) {
     ctx.save();
     ctx.strokeStyle = "#4d5f6f";
     ctx.fillStyle = "#c4cbd2";
     ctx.lineWidth = 3;
-    const px = platformX + fold * 28;
+    const px = platformBaseX + fold * 28;
     const pw = 70 * (1 - fold * 0.65);
     roundRect(ctx, px - 35, platformY - 5, pw, 10, 4); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = "#687785";
-    ctx.beginPath(); ctx.moveTo(px - 28, platformY - 5); ctx.lineTo(vanBaseX - 70, vanBaseY + 7); ctx.moveTo(px + 25, platformY - 5); ctx.lineTo(vanBaseX - 42, vanBaseY + 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px - 28, platformY - 5); ctx.lineTo(startVanX - 70, vanBaseY + 7); ctx.moveTo(px + 25, platformY - 5); ctx.lineTo(startVanX - 42, vanBaseY + 7); ctx.stroke();
     ctx.restore();
   }
   const approach = easeOut(clamp(t / 0.32, 0, 1));
-  const chairX = lerp(pin.x - 122, platformX - 5, approach);
+  const chairStartX = view.w + 120;
+  const chairX = lerp(chairStartX, platformBaseX - 5, approach);
   const chairY = platformY - 14;
-  const inside = clamp((t - 0.62) / 0.18, 0, 1);
-  const finalX = lerp(chairX, vanBaseX - 38, easeInOut(inside));
-  const alpha = 1 - clamp((t - 0.68) / 0.10, 0, 1);
+  const inside = clamp((t - 0.62) / 0.12, 0, 1);
+  const finalX = lerp(chairX, startVanX - 38, easeInOut(inside));
+  const alpha = 1 - clamp((t - 0.60) / 0.10, 0, 1);
   if (alpha > 0.02) drawTinyWheelchairForVan(finalX, chairY, 95, age, alpha);
-  if (t > 0.74 && t < 0.88) {
+  if (t > 0.60 && t < 0.76) {
     ctx.save();
     ctx.fillStyle = "#ffe36d";
-    for (let i = 0; i < 6; i += 1) drawStar(vanBaseX - 62 + Math.cos(i) * 20, vanBaseY + 16 + Math.sin(i * 1.4) * 16, 5, 2.4, 5);
+    for (let i = 0; i < 6; i += 1) drawStar(startVanX - 62 + Math.cos(i) * 20, vanBaseY + 16 + Math.sin(i * 1.4) * 16, 5, 2.4, 5);
     ctx.restore();
   }
 }
