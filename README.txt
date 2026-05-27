@@ -1,5 +1,5 @@
-Meowmoon Bowling v1.2.1
-Eleventh playable iteration
+Meowmoon Bowling v1.3.1
+Rebuilt from stable v1.2.1
 
 How to run locally
 1. Unzip the folder.
@@ -9,25 +9,17 @@ How to run locally
 5. Long-press the Meowmoon mascot for about 3 seconds to pause.
 6. Tap anywhere while paused to resume.
 
-Changes from v1.0.3
-- Removed the maze-level feature rather than merely disabling it.
-- Built v1.2.1 from the clean regular-game code path, so the game returns to regular bowling levels only.
-- Added 14 sports-action special pin animations to the active special-pin pool:
-  * Bat hits baseball
-  * Basketball dribble
-  * Basketball shot into hoop
-  * Hockey stick slapshot
-  * Curling broom and stone
-  * Football throw
-  * Soccer goal
-  * Tennis serve
-  * Golf drive
-  * Volleyball spike
-  * Baseball glove catch
-  * Mini bowling strike
-  * Ski jump
-  * Gymnastics flip
-- Updated the app version and service worker cache version to v1.2.1.
+Changes from v1.2.1
+- Rebuilt from the stable v1.2.1 game code path rather than from the unstable v1.3.0 patch.
+- Integrated the reviewed canvas-gallery animations directly into the game code.
+- Excluded the weeping willow animation.
+- Revised the tennis racquet so the string netting is contained inside the racquet head.
+- Added two jogging-stroller special animations with grey stroller frames for contrast.
+- Added three wheelchair-racing variants: stick figure, human figure A, and human figure B.
+- Kept the revised wheelchair proportions and removed the confusing blue/white fields from the gallery version.
+- Lengthened the popcorn reveal so the popped popcorn remains visible longer.
+- Added the taller, branchier Star Tree growth animation.
+- Added the wheelchair-accessible van lift animation with the rider fading before the van drives offscreen.
 
 Continuing design
 - Same Meowmoon cat mascot placement, size, and long-press pause behavior copied from Bubble Shooter v0.9.
@@ -38,9 +30,3 @@ Continuing design
 - Tap-to-aim with quiet assist.
 - Side-wall bounces still supported.
 - One special pin animation is intended to occur on every successful roll.
-- No special ball effects are assigned in v1.2.1.
-- Levels are designed to finish in no more than 8 rolls.
-
-Known v1.2.1 limitations
-- Sports actions are canvas-drawn simplified reward animations, not realistic sports physics.
-- This package has had a JavaScript syntax check, but it has not yet been device-tested on iPad, Fire tablet, or Galaxy.
