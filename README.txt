@@ -1,4 +1,4 @@
-Meowmoon Bowling v1.3.4
+Meowmoon Bowling v1.3.5
 Rebuilt from stable v1.2.1
 
 How to run locally
@@ -32,4 +32,4 @@ Continuing design
 - One special pin animation is intended to occur on every successful roll.
 
 
-v1.3.4 note: fixes missing gallery easing helpers that could freeze the game when popcorn, Star Tree, or van-lift animations appeared; adds a draw-error guard so animation art errors cannot block level advancement.
+v1.3.5 note: fixes missing gallery easing helpers that could freeze the game when popcorn, Star Tree, or van-lift animations appeared; adds a draw-error guard so animation art errors cannot block level advancement.
