@@ -2,8 +2,8 @@
   "use strict";
 
   /***************************************************************************
-   * Meowmoon Bowling v1.3.2
-   * Fixes v1.3.1 gallery-helper crash in popcorn, Star Tree, and van-lift animations; keeps willow excluded.
+   * Meowmoon Bowling v1.4.0
+   * Adds revised hockey, revised sun-9-planets, and elephant animations; keeps dandelion above pins and limits each level to one sun animation.
    * Design: no choices, no score, no frames, no losing, no ads, no timers.
    **************************************************************************/
 
@@ -24,7 +24,9 @@
   const MAX_ROLLS_PER_LEVEL = 8;
   const SPECIAL_PINS_PER_LEVEL = MAX_ROLLS_PER_LEVEL;
   const SPECIAL_BALLS_PER_LEVEL = 0;
-  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "pinatastar", "balloon", "firework", "jelly", "catpaw", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "baseballcatch", "bowlingstrike", "jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift", "marblerun", "regularwheelchair", "threestartrees", "giraffewalk", "heartdraw", "suntravel", "sunplanets", "dandelionlife", "firetruck"];
+  const PIN_SPECIAL_TYPES = ["rocket", "pinata", "pinatastar", "balloon", "firework", "jelly", "catpaw", "toytrain", "popcorn", "kite", "magicpaint", "flower", "racecar", "airplane", "helicopter", "bus", "bulldozer", "bunny", "frog", "bird", "dogzoomies", "batbaseball", "basketballdribble", "basketballhoop", "hockeypuck", "curling", "footballthrow", "soccergoal", "tennisserve", "golfdrive", "baseballcatch", "bowlingstrike", "jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift", "marblerun", "regularwheelchair", "threestartrees", "giraffewalk", "elephantwave", "heartdraw", "suntravel", "sunplanets", "dandelionlife", "firetruck"];
+  const SUN_SPECIAL_TYPES = ["suntravel", "sunplanets"];
+  const NON_SUN_PIN_SPECIAL_TYPES = PIN_SPECIAL_TYPES.filter(type => !SUN_SPECIAL_TYPES.includes(type));
   const BALL_SPECIAL_TYPES = [];
   const SPECIAL_TYPES = PIN_SPECIAL_TYPES;
   const SFX_GAIN = 4.1;
@@ -643,7 +645,7 @@
     game.specialBallMap = {};
     game.remainingSpecialPins = 0;
     game.bounceBursts = [];
-    game.pinSpecialQueue = shuffled(PIN_SPECIAL_TYPES);
+    game.pinSpecialQueue = buildPinSpecialQueue();
     game.messageIndex = (game.level - 1) % messages.length;
     game.message = messages[game.messageIndex];
     if (game.level === 1 && !game.introDismissed) game.titleStartedAt = nowMs();
@@ -661,8 +663,13 @@
     return a;
   }
 
+  function buildPinSpecialQueue() {
+    const oneSunType = SUN_SPECIAL_TYPES[randInt(0, SUN_SPECIAL_TYPES.length - 1)];
+    return shuffled([...NON_SUN_PIN_SPECIAL_TYPES, oneSunType]);
+  }
+
   function nextPinSpecialType() {
-    if (!game.pinSpecialQueue || !game.pinSpecialQueue.length) game.pinSpecialQueue = shuffled(PIN_SPECIAL_TYPES);
+    if (!game.pinSpecialQueue || !game.pinSpecialQueue.length) game.pinSpecialQueue = buildPinSpecialQueue();
     return game.pinSpecialQueue.shift();
   }
 
@@ -681,10 +688,11 @@
   function generatePins() {
     const count = randInt(12, 16);
     const minSep = layout.pinH * 0.70;
-    const left = layout.wallLeft + layout.pinW * 0.45;
-    const right = layout.wallRight - layout.pinW * 0.45;
-    const top = layout.playTop + layout.pinH * 0.35;
-    const bottom = Math.max(top + 160, layout.playBottom - layout.pinH * 0.35);
+    const pinSafeScale = 1.08;
+    const left = layout.wallLeft + layout.pinW * pinSafeScale * 0.78;
+    const right = layout.wallRight - layout.pinW * pinSafeScale * 0.78;
+    const top = layout.playTop + layout.pinH * pinSafeScale * 0.60;
+    const bottom = Math.max(top + 160, layout.playBottom - layout.pinH * pinSafeScale * 0.60);
 
     const anchors = [];
     const groupCount = randInt(7, 10);
@@ -720,6 +728,13 @@
       const y = rand(top, bottom);
       const tooClose = game.pins.some(p => Math.hypot(p.x - x, p.y - y) < minSep * 0.58);
       if (!tooClose) game.pins.push(createPin(x, y, game.pins.length));
+    }
+
+    for (const pin of game.pins) {
+      pin.x = clamp(pin.x, left, right);
+      pin.y = clamp(pin.y, top, bottom);
+      pin.baseX = pin.x;
+      pin.baseY = pin.y;
     }
   }
 
@@ -1161,7 +1176,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2400, 3200), footballthrow: randInt(2100, 2900), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2200, 2800), wheelchairhumanA: randInt(2200, 2800), wheelchairhumanB: randInt(2200, 2800), maplegrow: randInt(2800, 3600), vanlift: randInt(3400, 4000), marblerun: randInt(9800, 11500), regularwheelchair: randInt(2600, 3200), threestartrees: randInt(3800, 4600), giraffewalk: randInt(3200, 3900), heartdraw: randInt(3200, 3800), suntravel: randInt(5200, 6200), sunplanets: randInt(6000, 7000), dandelionlife: randInt(7200, 8200), firetruck: randInt(3000, 3600), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2400, 3200), footballthrow: randInt(2100, 2900), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2200, 2800), wheelchairhumanA: randInt(2200, 2800), wheelchairhumanB: randInt(2200, 2800), maplegrow: randInt(2800, 3600), vanlift: randInt(3400, 4000), marblerun: randInt(9800, 11500), regularwheelchair: randInt(2600, 3200), threestartrees: randInt(3800, 4600), giraffewalk: randInt(3200, 3900), elephantwave: randInt(3600, 4300), heartdraw: randInt(3200, 3800), suntravel: randInt(5200, 6200), sunplanets: randInt(6000, 7000), dandelionlife: randInt(7200, 8200), firetruck: randInt(3000, 3600), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
     const duration = durationMap[type] || randInt(1700, 2500);
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -1272,6 +1287,9 @@
       pin.rocket.nextChug = current + 980;
     } else if (type === "giraffewalk") {
       pin.rocket.nextChug = current + 520;
+    } else if (type === "elephantwave") {
+      pin.rocket.nextChug = current + 580;
+      audio.busDrive();
     } else if (type === "dandelionlife") {
       audio.flowerBloom();
     } else if (type === "firetruck") {
@@ -1359,11 +1377,12 @@
     const age = current - s.startedAt;
     const t = clamp(age / s.duration, 0, 1);
 
-    if (["jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift", "marblerun", "regularwheelchair", "threestartrees", "giraffewalk", "heartdraw", "suntravel", "sunplanets", "dandelionlife", "firetruck"].includes(s.type)) {
+    if (["jogstrollerparent", "wheelchairhumanA", "wheelchairhumanB", "maplegrow", "vanlift", "marblerun", "regularwheelchair", "threestartrees", "giraffewalk", "elephantwave", "heartdraw", "suntravel", "sunplanets", "dandelionlife", "firetruck"].includes(s.type)) {
       if (s.type === "wheelchairhumanA" || s.type === "wheelchairhumanB" || s.type === "regularwheelchair") {
         if (current >= (s.nextChug || 0)) { audio.raceCarSkid(); s.nextChug = current + 520; }
       }
       if (s.type === "giraffewalk" && current >= (s.nextChug || 0)) { audio.birdChirp(); s.nextChug = current + 720; }
+      if (s.type === "elephantwave" && current >= (s.nextChug || 0)) { audio.busDrive(); s.nextChug = current + 780; }
       if (s.type === "marblerun" && current >= (s.nextChug || 0)) { audio.hitPins(1); s.nextChug = current + 1020; }
       if (t >= 1) pin.removed = true;
       return;
@@ -1793,7 +1812,7 @@
 
   function drawPins(current) {
     const ordered = game.pins.slice().sort((a, b) => a.y - b.y);
-    const overlayTypes = new Set(["heartdraw", "suntravel", "sunplanets"]);
+    const overlayTypes = new Set(["heartdraw", "suntravel", "sunplanets", "dandelionlife"]);
     const overlayPins = [];
     for (const pin of ordered) {
       if (pin.rocket && !pin.removed && overlayTypes.has(pin.rocket.type)) {
@@ -1955,6 +1974,7 @@
     if (type === "marblerun") return drawMarbleRunPin(pin, current);
     if (type === "regularwheelchair") return drawRegularWheelchairPin(pin, current);
     if (type === "giraffewalk") return drawGiraffeWalkPin(pin, current);
+    if (type === "elephantwave") return drawElephantWavePin(pin, current);
     if (type === "heartdraw") return drawHeartDrawPin(pin, current);
     if (type === "suntravel") return drawSunTravelPin(pin, current);
     if (type === "sunplanets") return drawSunPlanetsPin(pin, current);
@@ -2737,16 +2757,16 @@ function drawPopcornPin(pin, current) {
     ctx.translate(stickX, puckY - s * 0.10);
     ctx.lineCap = "round"; ctx.lineJoin = "round";
     const shaftGrad = ctx.createLinearGradient(-s * 0.06, -s * 0.84, s * 0.22, 0);
-    shaftGrad.addColorStop(0, "#17191d"); shaftGrad.addColorStop(0.45, "#24272d"); shaftGrad.addColorStop(0.8, "#0f1014"); shaftGrad.addColorStop(1, "#111");
+    shaftGrad.addColorStop(0, "#edf1f7"); shaftGrad.addColorStop(0.45, "#d7dfe8"); shaftGrad.addColorStop(0.8, "#c8d0da"); shaftGrad.addColorStop(1, "#b8c3cf");
     ctx.strokeStyle = shaftGrad; ctx.lineWidth = Math.max(10, s * 0.12);
     ctx.beginPath(); ctx.moveTo(-s * 0.04, -s * 0.84); ctx.lineTo(s * 0.18, 0); ctx.stroke();
-    ctx.strokeStyle = "#b8922d"; ctx.lineWidth = Math.max(1.6, s * 0.020);
+    ctx.strokeStyle = "#4f93ff"; ctx.lineWidth = Math.max(1.6, s * 0.020);
     ctx.beginPath(); ctx.moveTo(-s * 0.03, -s * 0.78); ctx.lineTo(s * 0.06, -s * 0.46); ctx.moveTo(0, -s * 0.61); ctx.lineTo(s * 0.10, -s * 0.48); ctx.moveTo(s * 0.03, -s * 0.42); ctx.lineTo(s * 0.12, -s * 0.30); ctx.stroke();
-    ctx.fillStyle = "#0e1013"; ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+    ctx.fillStyle = "#dfe7f1"; ctx.strokeStyle = "#9fb0c2"; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(s * 0.18, 0); ctx.lineTo(s * 0.58, 0); ctx.quadraticCurveTo(s * 0.70, s * 0.01, s * 0.76, s * 0.06); ctx.quadraticCurveTo(s * 0.80, s * 0.10, s * 0.74, s * 0.14); ctx.lineTo(s * 0.26, s * 0.14); ctx.quadraticCurveTo(s * 0.16, s * 0.12, s * 0.16, s * 0.04); ctx.closePath();
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#c11f28"; roundRect(ctx, s * 0.07, -s * 0.08, s * 0.15, s * 0.07, 2); ctx.fill();
+    ctx.fillStyle = "#4f93ff"; roundRect(ctx, s * 0.07, -s * 0.08, s * 0.15, s * 0.07, 2); ctx.fill();
     ctx.restore();
     ctx.save();
     ctx.fillStyle = "#111"; ctx.strokeStyle = "#444"; ctx.lineWidth = 2;
@@ -3723,6 +3743,55 @@ function drawGiraffeWalkPin(pin, current) {
   drawGiraffeWalker(x, y, s, age);
 }
 
+function drawElephantWalker(cx, cy, s, age) {
+  const step = Math.sin(age / 180);
+  const trunkWave = Math.sin(age / 420);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = "#8e95a3";
+  ctx.strokeStyle = "#5d6675";
+  ctx.lineWidth = Math.max(2, s * 0.014);
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.30, s * 0.20, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(s * 0.22, -s * 0.07, s * 0.15, s * 0.13, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#a2a9b6";
+  ctx.beginPath(); ctx.ellipse(s * 0.10, -s * 0.03, s * 0.10, s * 0.12, -0.2, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#8e95a3";
+  [[-0.16,-step*0.04],[-0.04,step*0.03],[0.08,step*0.03],[0.20,-step*0.04]].forEach(([lx, off]) => {
+    roundRect(ctx, s * lx - s * 0.04, s * (0.12 + off), s * 0.08, s * 0.24, s * 0.03); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#778091"; roundRect(ctx, s * lx - s * 0.045, s * (0.33 + off), s * 0.09, s * 0.045, s * 0.02); ctx.fill(); ctx.fillStyle = "#8e95a3";
+  });
+  ctx.strokeStyle = "#5d6675"; ctx.lineWidth = Math.max(3, s * 0.020);
+  ctx.beginPath(); ctx.moveTo(-s * 0.28, -s * 0.04); ctx.quadraticCurveTo(-s * 0.38, s * 0.02, -s * 0.36, s * 0.12); ctx.stroke();
+  ctx.fillStyle = "#5d6675"; ctx.beginPath(); ctx.moveTo(-s * 0.36, s * 0.12); ctx.lineTo(-s * 0.32, s * 0.15); ctx.lineTo(-s * 0.35, s * 0.18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#24314f"; ctx.beginPath(); ctx.arc(s * 0.27, -s * 0.09, s * 0.014, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#f3ede3"; ctx.lineWidth = Math.max(2, s * 0.018);
+  ctx.beginPath(); ctx.moveTo(s * 0.29, -s * 0.02); ctx.quadraticCurveTo(s * 0.38, -s * 0.01, s * 0.37, s * 0.06); ctx.stroke();
+  ctx.fillStyle = "#8e95a3"; ctx.strokeStyle = "#5d6675"; ctx.lineWidth = Math.max(2, s * 0.012);
+  const bx = s * 0.33, by = 0, tipX = s * (0.36 + trunkWave * 0.08), tipY = s * (0.18 - Math.cos(age / 500) * 0.10);
+  ctx.beginPath();
+  ctx.moveTo(bx - s * 0.03, by - s * 0.01);
+  ctx.bezierCurveTo(s * 0.44, s * 0.04, s * 0.46 + trunkWave * s * 0.05, s * 0.10, tipX + s * 0.03, tipY - s * 0.02);
+  ctx.quadraticCurveTo(tipX + s * 0.05, tipY + s * 0.05, tipX, tipY + s * 0.06);
+  ctx.quadraticCurveTo(s * 0.43 + trunkWave * s * 0.04, s * 0.15, s * 0.34, s * 0.03);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(93,102,117,0.45)'; ctx.lineWidth = Math.max(1, s * 0.006);
+  for (let i = 0; i < 4; i += 1) {
+    const py = s * (0.05 + i * 0.04);
+    ctx.beginPath(); ctx.moveTo(s * (0.35 + i * 0.01), py); ctx.quadraticCurveTo(s * 0.40 + trunkWave * s * 0.03, py + s * 0.01, s * 0.44 + trunkWave * s * 0.04, py + s * 0.03); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawElephantWavePin(pin, current) {
+  const age = current - pin.rocket.startedAt;
+  const t = clamp(age / Math.max(1, pin.rocket.duration), 0, 1);
+  const e = easeInOut(t);
+  const s = layout.pinH * 1.86;
+  const x = lerp(layout.wallLeft - s * 0.70, layout.wallRight + s * 0.70, e);
+  const y = pin.y + s * 0.42;
+  drawGroundLineV131(y + s * 0.36, "rgba(136,150,102,0.25)");
+  drawElephantWalker(x, y, s, age);
+}
 
 
 function drawGameSun(cx, cy, r, age = 0, rayAlpha = 1) {
@@ -3834,8 +3903,8 @@ function drawSunPlanetsPin(pin, current) {
       { r: base * 0.72, size: 5, color: "#d9c8a9", speed: 1.4, phase: 1.1 },
       { r: base * 0.88, size: 5, color: "#6ec2ff", speed: 1.1, phase: 2.0 },
       { r: base * 1.05, size: 4, color: "#c86b44", speed: 0.95, phase: 2.8 },
-      { r: base * 1.22, size: 10, color: "#f7c663", speed: 0.75, phase: 3.7 },
-      { r: base * 1.40, size: 9, color: "#e2c997", speed: 0.62, phase: 4.5, ring: true },
+      { r: base * 1.22, size: 13, color: "#f7c663", speed: 0.75, phase: 3.7 },
+      { r: base * 1.40, size: 12, color: "#e2c997", speed: 0.62, phase: 4.5, ring: true },
       { r: base * 1.57, size: 8, color: "#8ad5df", speed: 0.48, phase: 5.1 },
       { r: base * 1.74, size: 8, color: "#5876ff", speed: 0.38, phase: 0.9 },
       { r: base * 1.95, size: 7, color: "#8b7de8", speed: 0.28, phase: 5.6 }
