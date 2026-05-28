@@ -679,7 +679,7 @@
   }
 
   function generatePins() {
-    const count = randInt(14, 18);
+    const count = randInt(12, 16);
     const minSep = layout.pinH * 0.70;
     const left = layout.wallLeft + layout.pinW * 0.45;
     const right = layout.wallRight - layout.pinW * 0.45;
@@ -1161,7 +1161,7 @@
     pin.vx = 0;
     pin.vy = 0;
     pin.angularVelocity = 0;
-    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2400, 3200), footballthrow: randInt(2100, 2900), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2200, 2800), wheelchairhumanA: randInt(2200, 2800), wheelchairhumanB: randInt(2200, 2800), maplegrow: randInt(2800, 3600), vanlift: randInt(3400, 4000), marblerun: randInt(7000, 8200), regularwheelchair: randInt(2600, 3200), threestartrees: randInt(3800, 4600), giraffewalk: randInt(3200, 3900), heartdraw: randInt(3200, 3800), suntravel: randInt(5200, 6200), sunplanets: randInt(6000, 7000), dandelionlife: randInt(7200, 8200), firetruck: randInt(3000, 3600), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
+    const durationMap = { rocket: randInt(2400, 3200), pinata: randInt(1000, 1500), pinatastar: randInt(1100, 1600), balloon: randInt(1800, 2600), firework: randInt(1700, 2500), jelly: randInt(1200, 1900), catpaw: randInt(2400, 3300), treasure: randInt(1000, 1600), toytrain: randInt(1800, 2600), popcorn: randInt(1900, 2500), kite: randInt(1800, 2600), magicpaint: randInt(1200, 1800), flower: randInt(1300, 2100), racecar: randInt(1600, 2400), airplane: randInt(2000, 2900), helicopter: randInt(2200, 3200), bus: randInt(1800, 2500), bulldozer: randInt(1900, 2700), bunny: randInt(1700, 2400), frog: randInt(1800, 2500), fish: randInt(1900, 2600), bird: randInt(1800, 2500), penguin: randInt(1900, 2600), dogzoomies: randInt(2100, 3000), batbaseball: randInt(1500, 2300), basketballdribble: randInt(1800, 2600), basketballhoop: randInt(1700, 2500), hockeypuck: randInt(1500, 2300), curling: randInt(2400, 3200), footballthrow: randInt(2100, 2900), soccergoal: randInt(1700, 2500), tennisserve: randInt(1500, 2300), golfdrive: randInt(1600, 2400), volleyballspike: randInt(1600, 2400), baseballcatch: randInt(1600, 2400), bowlingstrike: randInt(1700, 2500), jogstrollerparent: randInt(2200, 2800), wheelchairhumanA: randInt(2200, 2800), wheelchairhumanB: randInt(2200, 2800), maplegrow: randInt(2800, 3600), vanlift: randInt(3400, 4000), marblerun: randInt(9800, 11500), regularwheelchair: randInt(2600, 3200), threestartrees: randInt(3800, 4600), giraffewalk: randInt(3200, 3900), heartdraw: randInt(3200, 3800), suntravel: randInt(5200, 6200), sunplanets: randInt(6000, 7000), dandelionlife: randInt(7200, 8200), firetruck: randInt(3000, 3600), wheelchairsprint: randInt(2200, 3200), skijump: randInt(1900, 2800), gymnasticsflip: randInt(1700, 2500) };
     const duration = durationMap[type] || randInt(1700, 2500);
     const exitSide = Math.random() < 0.5 ? -1 : 1;
     const exitX = exitSide < 0 ? -layout.pinH * 1.2 : view.w + layout.pinH * 1.2;
@@ -2735,10 +2735,18 @@ function drawPopcornPin(pin, current) {
     drawForwardArrowTrail(pin.x + s * 0.02, puckY, puckX, puckY, "#dff7ff");
     ctx.save();
     ctx.translate(stickX, puckY - s * 0.10);
-    ctx.strokeStyle = "#c1121f"; ctx.lineWidth = Math.max(10, s * 0.12); ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.beginPath(); ctx.moveTo(-s * 0.04, -s * 0.42); ctx.lineTo(s * 0.18, 0); ctx.lineTo(s * 0.58, 0); ctx.stroke();
-    ctx.strokeStyle = "#1b1b1b"; ctx.lineWidth = Math.max(4, s * 0.042);
-    ctx.beginPath(); ctx.moveTo(-s * 0.04, -s * 0.42); ctx.lineTo(s * 0.04, -s * 0.26); ctx.moveTo(s * 0.42, 0); ctx.lineTo(s * 0.58, 0); ctx.stroke();
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    const shaftGrad = ctx.createLinearGradient(-s * 0.06, -s * 0.84, s * 0.22, 0);
+    shaftGrad.addColorStop(0, "#17191d"); shaftGrad.addColorStop(0.45, "#24272d"); shaftGrad.addColorStop(0.8, "#0f1014"); shaftGrad.addColorStop(1, "#111");
+    ctx.strokeStyle = shaftGrad; ctx.lineWidth = Math.max(10, s * 0.12);
+    ctx.beginPath(); ctx.moveTo(-s * 0.04, -s * 0.84); ctx.lineTo(s * 0.18, 0); ctx.stroke();
+    ctx.strokeStyle = "#b8922d"; ctx.lineWidth = Math.max(1.6, s * 0.020);
+    ctx.beginPath(); ctx.moveTo(-s * 0.03, -s * 0.78); ctx.lineTo(s * 0.06, -s * 0.46); ctx.moveTo(0, -s * 0.61); ctx.lineTo(s * 0.10, -s * 0.48); ctx.moveTo(s * 0.03, -s * 0.42); ctx.lineTo(s * 0.12, -s * 0.30); ctx.stroke();
+    ctx.fillStyle = "#0e1013"; ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(s * 0.18, 0); ctx.lineTo(s * 0.58, 0); ctx.quadraticCurveTo(s * 0.70, s * 0.01, s * 0.76, s * 0.06); ctx.quadraticCurveTo(s * 0.80, s * 0.10, s * 0.74, s * 0.14); ctx.lineTo(s * 0.26, s * 0.14); ctx.quadraticCurveTo(s * 0.16, s * 0.12, s * 0.16, s * 0.04); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#c11f28"; roundRect(ctx, s * 0.07, -s * 0.08, s * 0.15, s * 0.07, 2); ctx.fill();
     ctx.restore();
     ctx.save();
     ctx.fillStyle = "#111"; ctx.strokeStyle = "#444"; ctx.lineWidth = 2;
@@ -2789,24 +2797,12 @@ function drawPopcornPin(pin, current) {
     const t = clamp(age / Math.max(1, pin.rocket.duration), 0, 1);
     const e = easeInOut(t);
     const s = layout.pinH * 1.48;
-    const start = { x: layout.wallLeft + 6, y: pin.y + s * 0.34 };
-    const end = { x: layout.wallRight + s * 0.72, y: pin.y - s * 0.44 };
+    const start = { x: layout.wallLeft + 8, y: pin.y + s * 0.36 };
+    const end = { x: layout.wallRight + s * 0.78, y: pin.y - s * 0.40 };
     const x = lerp(start.x, end.x, e);
     const y = lerp(start.y, end.y, e) - Math.sin(e * Math.PI) * s * 0.78;
     ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,.60)"; ctx.lineWidth = 4; ctx.lineCap = "round";
-    ctx.beginPath();
-    for (let i = 0; i <= 32; i += 1) {
-      const tt = i / 32; const ee = easeInOut(tt);
-      const px = lerp(start.x, end.x, ee);
-      const py = lerp(start.y, end.y, ee) - Math.sin(ee * Math.PI) * s * 0.78;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-    ctx.restore();
-    drawFootballThrower(pin.x - s * 0.88, pin.y + s * 0.18, age, s * 0.68);
-    ctx.save();
-    ctx.translate(x, y); ctx.rotate(-0.35 + e * TAU * 1.35);
+    ctx.translate(x, y); ctx.rotate(-0.32);
     ctx.fillStyle = "#8b4a24"; ctx.strokeStyle = "#4b260f"; ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.ellipse(0, 0, s * 0.34, s * 0.19, 0, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.1;
@@ -3618,7 +3614,7 @@ function marbleRunPosition(startX, startY, w, h, u) {
 function drawMarbleRunPin(pin, current) {
   const age = current - pin.rocket.startedAt;
   const t = clamp(age / Math.max(1, pin.rocket.duration), 0, 1);
-  const fade = 1 - clamp((t - 0.90) / 0.10, 0, 1);
+  const fade = 1 - clamp((t - 0.92) / 0.08, 0, 1);
   const left = layout.wallLeft;
   const right = layout.wallRight;
   const top = layout.playTop + 6;
@@ -3647,13 +3643,12 @@ function drawMarbleRunPin(pin, current) {
   ctx.fillStyle = "#aa733b";
   rails.forEach((r) => ctx.fillRect(r.x1 - 4, r.y1, 8, 34));
   const colors = [
-    ["#ffffff", "#7bd7ff", "#348ce6", "#194c91"],
     ["#fff6f6", "#ffb1b1", "#ef3340", "#932330"],
     ["#f6fff8", "#9af0ab", "#41b75b", "#216937"],
-    ["#fffce8", "#ffe57d", "#f0b400", "#8c6400"]
+    ["#ffffff", "#7bd7ff", "#348ce6", "#194c91"]
   ];
-  for (let i = 0; i < 4; i += 1) {
-    const local = t * 4 - i;
+  for (let i = 0; i < 3; i += 1) {
+    const local = t * 3 - i;
     if (local < 0 || local > 1) continue;
     const p = marblePos(local);
     const g = ctx.createRadialGradient(p.x - 5, p.y - 5, 2, p.x, p.y, 13);
