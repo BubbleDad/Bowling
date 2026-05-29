@@ -1,4 +1,4 @@
-Meowmoon Bowling v1.4.5 rendering-sections
+Meowmoon Bowling v1.4.6 final-cleanup
 Rebuilt from stable v1.2.1
 
 How to run locally
@@ -35,4 +35,4 @@ Continuing design
 v1.3.9 note: fixes missing gallery easing helpers that could freeze the game when popcorn, Star Tree, or van-lift animations appeared; adds a draw-error guard so animation art errors cannot block level advancement.
 
 
-v1.4.5 rendering-sections note: integrates the revised lighter-color hockey animation, the revised 9-planet sun animation with larger Jupiter and Saturn, and the revised elephant animation; keeps the dandelion animation above the pins; tightens pin placement so pins do not spawn partly offscreen; and limits each level to only one sun animation total.
+v1.4.6 final-cleanup note: integrates the revised lighter-color hockey animation, the revised 9-planet sun animation with larger Jupiter and Saturn, and the revised elephant animation; keeps the dandelion animation above the pins; tightens pin placement so pins do not spawn partly offscreen; and limits each level to only one sun animation total.
