@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-4-8-start-overlay-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-4-9-transparent-start-overlay-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.4.8.js',
+  './app-v1.4.9.js',
   './manifest.webmanifest',
   './assets/images/icon-192.png',
   './assets/images/icon-512.png',
