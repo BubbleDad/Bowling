@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Meowmoon Bowling" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>Meowmoon Bowling v1.4.7 startup-stability</title>
+  <title>Meowmoon Bowling v1.4.8 start-overlay</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <style>
     :root { color-scheme: light; --safe-bottom: env(safe-area-inset-bottom, 0px); }
@@ -15,13 +15,51 @@
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #63d5ff; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     canvas { display: block; width: 100vw; height: 100vh; background: #63d5ff; }
     #installNote { position: fixed; left: -9999px; top: -9999px; }
+    #startOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: #34308b;
+      background: linear-gradient(rgba(84,205,255,0.96), rgba(227,251,255,0.88));
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+    #startOverlay[hidden] { display: none; }
+    #startOverlay .startCard {
+      padding: 24px 22px;
+      border-radius: 28px;
+      background: rgba(255,255,255,0.64);
+      box-shadow: 0 10px 30px rgba(30,70,130,0.16);
+    }
+    #startOverlay .startTitle {
+      font-weight: 1000;
+      font-size: clamp(42px, 11vw, 82px);
+      color: #ffe36d;
+      -webkit-text-stroke: 2px rgba(38,72,160,0.72);
+      text-shadow: 0 3px 0 rgba(38,72,160,0.25);
+      line-height: 0.95;
+      margin-bottom: 18px;
+    }
+    #startOverlay .startText {
+      font-size: clamp(20px, 4.8vw, 34px);
+      font-weight: 850;
+    }
   </style>
 </head>
 <body>
   <canvas id="game" aria-label="Meowmoon Bowling playable prototype"></canvas>
+  <div id="startOverlay" role="button" aria-label="Tap anywhere to roll">
+    <div class="startCard">
+      <div class="startTitle">Meowmoon<br>Bowling</div>
+      <div class="startText">Tap anywhere to roll</div>
+    </div>
+  </div>
   <div id="installNote">Meowmoon Bowling</div>
   <audio id="bachMusic" src="audio/jesu-joy-piano-loop.mp3" loop preload="auto" playsinline webkit-playsinline></audio>
-  <script src="app-v1.4.7.js"></script>
+  <script src="app-v1.4.8.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
