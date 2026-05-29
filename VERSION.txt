@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.4.6 final-cleanup
-App file: app-v1.4.6.js
-Cache name: meowmoon-bowling-v1-4-6-final-cleanup-cache
+Version: v1.4.7 startup-stability
+App file: app-v1.4.7.js
+Cache name: meowmoon-bowling-v1-4-7-startup-stability-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -9,3 +9,5 @@ Cleanup status:
 3. Ball loading and phase-state cleanup: complete
 4. Rendering and code-section cleanup: complete
 5. Final docs, dead-code audit, and deployment checklist: complete
+
+Startup stability fix: title tap is handled before cat long-press, startup readiness checks rebuild only an incomplete first opening state, and startup now uses phase helpers.
