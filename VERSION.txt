@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.1 dead-code-cleanup
-App file: app-v1.5.1.js
-Cache name: meowmoon-bowling-v1-5-1-dead-code-cleanup-cache
+Version: v1.5.2 dead-code-cleanup-2
+App file: app-v1.5.2.js
+Cache name: meowmoon-bowling-v1-5-2-dead-code-cleanup-2-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -20,3 +20,5 @@ Transparent start overlay: keeps the reliable tap-catching overlay but removes v
 v1.5.0 wording note: Wording-only release changing “Tap anywhere to roll” to “Tap anywhere to play.” No gameplay or animation changes intended.
 
 v1.5.1 dead-code-cleanup note: Cleanup-only release removing clearly unused function declarations. No gameplay, registered animation, pin count, startup overlay, phase-state, service-worker behavior beyond version/cache bump, or visual design changes intended.
+
+v1.5.2 dead-code-cleanup-2 note: Cleanup-only release removing four additional unused function declarations. No stale type-handling branches, gameplay, registered animation, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or visual design changes intended.
