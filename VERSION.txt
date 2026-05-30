@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.4.9 transparent-start-overlay
-App file: app-v1.4.9.js
-Cache name: meowmoon-bowling-v1-4-9-transparent-start-overlay-cache
+Version: v1.5.0 wording
+App file: app-v1.5.0.js
+Cache name: meowmoon-bowling-v1-5-0-wording-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -12,6 +12,9 @@ Cleanup status:
 
 Startup stability fix: title tap is handled before cat long-press, startup readiness checks rebuild only an incomplete first opening state, and startup now uses phase helpers.
 
-Start overlay fix: adds DOM-based Tap anywhere to roll overlay and render-loop recovery.
+Start overlay fix: adds DOM-based Tap anywhere to play overlay and render-loop recovery.
 
 Transparent start overlay: keeps the reliable tap-catching overlay but removes visible text/card and uses transparent background.
+
+
+v1.5.0 wording note: Wording-only release changing “Tap anywhere to roll” to “Tap anywhere to play.” No gameplay or animation changes intended.
