@@ -4270,23 +4270,24 @@ function drawUnderarmCrutch(shoulderX, shoulderY, handX, handY, tipX, tipY, side
 
 function drawUnderarmCrutchesWalkPin(pin, current) {
   const age = current - pin.rocket.startedAt;
-  const cycle = clamp(age / Math.max(1, pin.rocket.duration), 0, 1);
-  const crutchesAdvancePhase = cycle >= 0.20 && cycle < 0.28;
-  const weightBearingPhase = cycle >= 0.28 && cycle < 0.56;
-  const feetAdvancePhase = cycle >= 0.40 && cycle < 0.64;
-  const crutchAdvanceT = easeInOut(clamp((cycle - 0.20) / 0.08, 0, 1));
-  const bodyPassT = easeInOut(clamp((cycle - 0.28) / 0.28, 0, 1));
-  const footAdvanceT = easeInOut(clamp((cycle - 0.40) / 0.24, 0, 1));
-  const recoveryT = easeInOut(clamp((cycle - 0.64) / 0.36, 0, 1));
+  const travelCycle = clamp(age / Math.max(1, pin.rocket.duration), 0, 1);
+  const gaitCycle = (travelCycle * 2) % 1;
+  const crutchesAdvancePhase = gaitCycle >= 0.20 && gaitCycle < 0.28;
+  const weightBearingPhase = gaitCycle >= 0.28 && gaitCycle < 0.56;
+  const feetAdvancePhase = gaitCycle >= 0.40 && gaitCycle < 0.64;
+  const crutchAdvanceT = easeInOut(clamp((gaitCycle - 0.20) / 0.08, 0, 1));
+  const bodyPassT = easeInOut(clamp((gaitCycle - 0.28) / 0.28, 0, 1));
+  const footAdvanceT = easeInOut(clamp((gaitCycle - 0.40) / 0.24, 0, 1));
+  const recoveryT = easeInOut(clamp((gaitCycle - 0.64) / 0.36, 0, 1));
   const crutchPoseT = crutchAdvanceT * (1 - recoveryT);
   const bodyPoseT = bodyPassT * (1 - recoveryT);
   const footPoseT = footAdvanceT * (1 - recoveryT);
   const scale = layout.pinH / 155;
-  const stageW = layout.pinH * 3.4;
+  const stageW = layout.pinH * 4.2;
   const groundY = pin.y + layout.pinH * 1.05;
-  const travelStart = pin.x - stageW * 0.48;
+  const travelStart = pin.x - stageW * 0.96;
   const travelEnd = pin.x + stageW * 0.48;
-  const x = lerp(travelStart, travelEnd, cycle);
+  const x = lerp(travelStart, travelEnd, travelCycle);
   const unit = 16 * scale;
   const headR = 18 * scale;
   const neckH = unit * 0.32;
@@ -4295,7 +4296,7 @@ function drawUnderarmCrutchesWalkPin(pin, current) {
   const stepLength = 64 * scale;
   const crutchLift = crutchesAdvancePhase ? Math.sin(crutchAdvanceT * Math.PI) * 16 * scale : 0;
   const footLift = feetAdvancePhase ? Math.sin(footAdvanceT * Math.PI) * 8 * scale : 0;
-  const supportPress = weightBearingPhase ? Math.sin(clamp((cycle - 0.28) / 0.28, 0, 1) * Math.PI) : 0;
+  const supportPress = weightBearingPhase ? Math.sin(clamp((gaitCycle - 0.28) / 0.28, 0, 1) * Math.PI) : 0;
   const y = groundY - legH + supportPress * 4 * scale - recoveryT * 2 * scale;
   const hipX = x - 12 * scale + bodyPoseT * 28 * scale;
   const hipY = y;
@@ -4324,7 +4325,7 @@ function drawUnderarmCrutchesWalkPin(pin, current) {
   const crutchesPlanted = !crutchesAdvancePhase;
 
   ctx.save();
-  ctx.globalAlpha = 1 - clamp((cycle - 0.92) / 0.08, 0, 1);
+  ctx.globalAlpha = 1 - clamp((travelCycle - 0.92) / 0.08, 0, 1);
   drawGroundLineV131(groundY + 6 * scale, "rgba(90,110,130,0.26)");
   ctx.save();
   ctx.globalAlpha *= 0.22;
