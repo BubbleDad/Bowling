@@ -5,7 +5,7 @@ The playable game remains a single-file JavaScript application for deployment si
 ## Main files
 
 - `index.html`: page shell, canvas, transparent start overlay, audio element, app script, service-worker registration.
-- `app-v1.5.5.js`: main game code.
+- `app-v1.5.6.js`: main game code.
 - `sw.js`: service worker and cache list.
 - `manifest.webmanifest`: progressive web app manifest.
 - `VERSION.txt`: current version summary.
@@ -13,7 +13,7 @@ The playable game remains a single-file JavaScript application for deployment si
 
 ## JavaScript sections
 
-Inside `app-v1.5.5.js`, the intended navigation order is:
+Inside `app-v1.5.6.js`, the intended navigation order is:
 
 1. **Canvas, constants, and game state**
    - Canvas setup.
