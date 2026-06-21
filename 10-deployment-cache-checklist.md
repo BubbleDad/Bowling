@@ -12,12 +12,12 @@
 
 ## Version check
 
-For v1.5.4:
+For v1.5.5:
 
-- `index.html` should reference `app-v1.5.4.js`.
-- `sw.js` should cache `./app-v1.5.4.js`.
-- `sw.js` should use `meowmoon-bowling-v1-5-4-train-dragon-animations-cache`.
-- the console marker should say v1.5.4.
+- `index.html` should reference `app-v1.5.5.js`.
+- `sw.js` should cache `./app-v1.5.5.js`.
+- `sw.js` should use `meowmoon-bowling-v1-5-5-regional-animations-cache`.
+- the console marker should say v1.5.5.
 
 ## If old behavior appears
 
