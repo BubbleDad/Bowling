@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-3-crutches-animation-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-4-train-dragon-animations-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.3.js',
+  './app-v1.5.4.js',
   './manifest.webmanifest',
   './assets/images/icon-192.png',
   './assets/images/icon-512.png',
