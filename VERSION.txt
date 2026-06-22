@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.8 eight-animation-bundle
-App file: app-v1.5.8.js
-Cache name: meowmoon-bowling-v1-5-8-eight-animation-bundle-cache
+Version: v1.5.9 startup-status-timing-fix
+App file: app-v1.5.9.js
+Cache name: meowmoon-bowling-v1-5-9-startup-status-timing-fix-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -34,3 +34,5 @@ v1.5.6 review-bundle-animations note: Adds the approved Tugboat Bob, Jellybean R
 v1.5.7 cardinal-hanbok-ferry-animations note: Adds the approved Cardinal Glide v2, Cardinal Flies Off Screen v1, Hanbok Ribbon Twirl v2, and Mersey Ferry Glide v1 registered special pin animations. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual design changes intended.
 
 v1.5.8 eight-animation-bundle note: Replaces Cardinal Glide v2 with approved Cardinal Glide v3 and adds Tropical Bird Hop, Rainbow Bridge Pop, Mosaic Tile Shimmer, Column Circle Dance, Orange White Green Ribbon, Streetcar Bell Roll, and Camp Wagon Roll. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual design changes intended.
+
+v1.5.9 startup-status-timing-fix note: Clamps rotating-status elapsed time to zero on the first animation frame and falls back to the first status message if needed. This prevents the recoverable `undefined.split` startup error. No gameplay, animation, pin count, startup overlay, phase-state, lifecycle, ball-special, or visual-design changes intended.
