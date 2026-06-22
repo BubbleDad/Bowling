@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-7-cardinal-hanbok-ferry-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-8-eight-animation-bundle-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.7.js',
+  './app-v1.5.8.js',
   './manifest.webmanifest',
   './assets/images/icon-192.png',
   './assets/images/icon-512.png',
