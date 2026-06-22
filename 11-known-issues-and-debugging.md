@@ -9,7 +9,7 @@ Fixed in v1.5.9. The first `requestAnimationFrame` timestamp could be slightly e
 The current transparent HTML overlay is intended to protect against this. Check:
 
 - `#startOverlay` exists in `index.html`;
-- `app-v1.5.0.js` reads `startOverlay`;
+- the current versioned app file reads `startOverlay`;
 - `startRollFromPointerEvent()` is present;
 - the overlay is transparent but not removed.
 

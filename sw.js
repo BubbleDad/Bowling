@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-10-dead-code-cleanup-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-11-remaining-dead-code-cleanup-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.10.js',
+  './app-v1.5.11.js',
   './manifest.webmanifest',
   './assets/images/icon-192.png',
   './assets/images/icon-512.png',
