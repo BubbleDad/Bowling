@@ -12,12 +12,12 @@
 
 ## Version check
 
-For v1.5.6:
+For v1.5.7:
 
-- `index.html` should reference `app-v1.5.6.js`.
-- `sw.js` should cache `./app-v1.5.6.js`.
-- `sw.js` should use `meowmoon-bowling-v1-5-6-review-bundle-animations-cache`.
-- the console marker should say v1.5.6.
+- `index.html` should reference `app-v1.5.7.js`.
+- `sw.js` should cache `./app-v1.5.7.js`.
+- `sw.js` should use `meowmoon-bowling-v1-5-7-cardinal-hanbok-ferry-cache`.
+- the console marker should say v1.5.7.
 
 ## If old behavior appears
 

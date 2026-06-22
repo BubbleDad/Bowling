@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.6 review-bundle-animations
-App file: app-v1.5.6.js
-Cache name: meowmoon-bowling-v1-5-6-review-bundle-animations-cache
+Version: v1.5.7 cardinal-hanbok-ferry-animations
+App file: app-v1.5.7.js
+Cache name: meowmoon-bowling-v1-5-7-cardinal-hanbok-ferry-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -30,3 +30,5 @@ v1.5.4 train-dragon-animations note: Adds the approved Connected Train and Frien
 v1.5.5 regional-animations note: Adds the approved Millyard Gear Machine, Light Rail Glide, Raptor Wing Glide, and Raptor Up Left Exit registered special pin animations. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual design changes intended.
 
 v1.5.6 review-bundle-animations note: Adds the approved Tugboat Bob, Jellybean Row Color Pop, Tulip Bloom Wave, Ribbon Dance, and Metro Train registered special pin animations. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual design changes intended.
+
+v1.5.7 cardinal-hanbok-ferry-animations note: Adds the approved Cardinal Glide v2, Cardinal Flies Off Screen v1, Hanbok Ribbon Twirl v2, and Mersey Ferry Glide v1 registered special pin animations. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual design changes intended.
