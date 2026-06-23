@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.11 remaining-dead-code-cleanup
-App file: app-v1.5.11.js
-Cache name: meowmoon-bowling-v1-5-11-remaining-dead-code-cleanup-cache
+Version: v1.5.12 animation-replacements
+App file: app-v1.5.12.js
+Cache name: meowmoon-bowling-v1-5-12-animation-replacements-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -40,3 +40,5 @@ v1.5.9 startup-status-timing-fix note: Clamps rotating-status elapsed time to ze
 v1.5.10 dead-code-cleanup note: Removes 49 declaration-only functions confirmed to have no call sites, including obsolete pin helpers and unused animation drawing helpers. No gameplay, registered animation, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or visual-design changes intended.
 
 v1.5.11 remaining-dead-code-cleanup note: Removes seven declaration-only constants and aliases confirmed to have no references. No gameplay, registered animation, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or visual-design changes intended.
+
+v1.5.12 animation-replacements note: Replaces Millyard Gear Machine with approved v3, replaces Jellybean Row Color Pop with approved v3, replaces Camp Wagon Roll with approved v2, and adds Flower Wave Bloom v2 as a new registered special pin animation. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual-design changes intended.

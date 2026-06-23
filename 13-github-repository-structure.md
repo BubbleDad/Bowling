@@ -6,7 +6,7 @@ Recommended repository layout:
 meowmoon-bowling/
   game/
     index.html
-    app-v1.5.11.js
+    app-v1.5.12.js
     sw.js
     manifest.webmanifest
     VERSION.txt
@@ -28,15 +28,15 @@ meowmoon-bowling/
 1. Create repo.
 2. Copy current `game/`.
 3. Copy docs.
-4. Confirm `index.html` loads `app-v1.5.11.js`.
-5. Confirm `sw.js` caches `app-v1.5.11.js`.
+4. Confirm `index.html` loads `app-v1.5.12.js`.
+5. Confirm `sw.js` caches `app-v1.5.12.js`.
 6. Run JavaScript syntax check:
    ```bash
-   node --check game/app-v1.5.11.js
+   node --check game/app-v1.5.12.js
    ```
 7. Commit as:
    ```text
-   Maintain Meowmoon Bowling v1.5.11
+   Maintain Meowmoon Bowling v1.5.12
    ```
 
 ## Branching suggestion

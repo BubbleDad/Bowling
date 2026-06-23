@@ -12,12 +12,12 @@
 
 ## Version check
 
-For v1.5.10:
+For v1.5.12:
 
-- `index.html` should reference `app-v1.5.10.js`.
-- `sw.js` should cache `./app-v1.5.10.js`.
-- `sw.js` should use `meowmoon-bowling-v1-5-10-dead-code-cleanup-cache`.
-- the console marker should say v1.5.10.
+- `index.html` should reference `app-v1.5.12.js`.
+- `sw.js` should cache `./app-v1.5.12.js`.
+- `sw.js` should use `meowmoon-bowling-v1-5-12-animation-replacements-cache`.
+- the console marker should say v1.5.12.
 
 ## If old behavior appears
 

@@ -1,4 +1,4 @@
-Meowmoon Bowling v1.5.11 remaining-dead-code-cleanup
+Meowmoon Bowling v1.5.12 animation-replacements
 Rebuilt from stable v1.2.1
 
 How to run locally
@@ -37,4 +37,4 @@ v1.3.9 note: fixes missing gallery easing helpers that could freeze the game whe
 
 v1.5.0 wording note: integrates the revised lighter-color hockey animation, the revised 9-planet sun animation with larger Jupiter and Saturn, and the revised elephant animation; keeps the dandelion animation above the pins; tightens pin placement so pins do not spawn partly offscreen; and limits each level to only one sun animation total.
 
-Current release note: v1.5.11 removes seven unused declarations after the v1.5.10 function cleanup. See VERSION.txt for the complete version history.
+Current release note: v1.5.12 replaces the approved gear, jellybean, and camp wagon special animations and adds Flower Wave Bloom v2. See VERSION.txt for the complete version history.

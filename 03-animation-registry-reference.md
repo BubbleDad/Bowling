@@ -1,6 +1,6 @@
 # Animation Registry Reference
 
-Registry entry count: 70
+Registry entry count: 71
 
 Each special pin animation should be represented here before it appears in gameplay.
 
@@ -56,12 +56,12 @@ Each special pin animation should be represented here before it appears in gamep
 | `crutcheswalk` | Underarm Crutches Walk | `staticTimed` | False | `` | `drawUnderarmCrutchesWalkPin` |
 | `trainlinked` | Connected Train | `staticTimed` | True | `` | `trainlinkedDrawPin` |
 | `dragonfirev5` | Friendly Dragon Fire | `staticTimed` | True | `` | `dragonfirev5DrawPin` |
-| `millyardgearv2` | Millyard Gear Machine | `staticTimed` | True | `` | `millyardgearv2DrawPin` |
+| `millyardgearv3` | Millyard Gear Machine | `staticTimed` | True | `` | `millyardgearv3DrawPin` |
 | `lightrailv2` | Light Rail Glide | `staticTimed` | True | `` | `lightrailv2DrawPin` |
 | `raptorwingv2` | Raptor Wing Glide | `staticTimed` | True | `` | `raptorwingv2DrawPin` |
 | `raptorleftv1` | Raptor Up Left Exit | `staticTimed` | True | `` | `raptorleftv1DrawPin` |
 | `tugboatbob` | Tugboat Bob | `staticTimed` | True | `` | `tugboatv1DrawPin` |
-| `jellybeanrowcolor` | Jellybean Row Color Pop | `staticTimed` | True | `` | `jellybeanv2DrawPin` |
+| `jellybeanv3` | Jellybean Row Color Pop | `staticTimed` | True | `` | `jellybeanv3DrawPin` |
 | `tulipbloomwave` | Tulip Bloom Wave | `staticTimed` | True | `` | `tulipsv3DrawPin` |
 | `ribbondance` | Ribbon Dance | `staticTimed` | True | `` | `ribbondancev3DrawPin` |
 | `metrotrain` | Metro Train | `staticTimed` | True | `` | `metrotrainv2DrawPin` |
@@ -75,4 +75,5 @@ Each special pin animation should be represented here before it appears in gamep
 | `columncircledance` | Column Circle Dance | `staticTimed` | True | `` | `columncircledancev2DrawPin` |
 | `orangewhitegreenribbon` | Orange White Green Ribbon | `staticTimed` | True | `` | `orangewhitegreenribbonv1DrawPin` |
 | `streetcarbellroll` | Streetcar Bell Roll | `staticTimed` | True | `` | `streetcarbellv1DrawPin` |
-| `campwagonroll` | Camp Wagon Roll | `staticTimed` | True | `` | `campwagonv1DrawPin` |
+| `campwagonv2` | Camp Wagon Roll | `staticTimed` | True | `` | `campwagonv2DrawPin` |
+| `flowerwavev2` | Flower Wave Bloom | `staticTimed` | True | `` | `flowerwavev2DrawPin` |
