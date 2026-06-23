@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.12 animation-replacements
-App file: app-v1.5.12.js
-Cache name: meowmoon-bowling-v1-5-12-animation-replacements-cache
+Version: v1.5.13 legacy-branch-cleanup
+App file: app-v1.5.13.js
+Cache name: meowmoon-bowling-v1-5-13-legacy-branch-cleanup-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -42,3 +42,5 @@ v1.5.10 dead-code-cleanup note: Removes 49 declaration-only functions confirmed 
 v1.5.11 remaining-dead-code-cleanup note: Removes seven declaration-only constants and aliases confirmed to have no references. No gameplay, registered animation, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or visual-design changes intended.
 
 v1.5.12 animation-replacements note: Replaces Millyard Gear Machine with approved v3, replaces Jellybean Row Color Pop with approved v3, replaces Camp Wagon Roll with approved v2, and adds Flower Wave Bloom v2 as a new registered special pin animation. No gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, service-worker behavior beyond version/cache bump, or unrelated visual-design changes intended.
+
+v1.5.13 legacy-branch-cleanup note: Removes unreachable launch/update/audio branches for unregistered legacy special pin types fish, penguin, treasure, wheelchair sprint, volleyball spike, ski jump, and gymnastics flip. No registered animation, gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, cache behavior beyond version/cache bump, or visual-design changes intended.

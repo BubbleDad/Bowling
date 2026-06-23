@@ -3,7 +3,7 @@
 ## Set up baseline
 
 ```text
-Review this repository as the Meowmoon Bowling v1.5.12 stable version. Do not change gameplay. Confirm index.html loads app-v1.5.12.js, confirm sw.js caches app-v1.5.12.js, run node --check on the app file, and summarize the file structure.
+Review this repository as the Meowmoon Bowling v1.5.13 stable version. Do not change gameplay. Confirm index.html loads app-v1.5.13.js, confirm sw.js caches app-v1.5.13.js, run node --check on the app file, and summarize the file structure.
 ```
 
 ## Wording-only change

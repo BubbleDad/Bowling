@@ -1,4 +1,4 @@
-Meowmoon Bowling v1.5.12 animation-replacements
+Meowmoon Bowling v1.5.13 legacy-branch-cleanup
 Rebuilt from stable v1.2.1
 
 How to run locally
@@ -35,6 +35,6 @@ Continuing design
 v1.3.9 note: fixes missing gallery easing helpers that could freeze the game when popcorn, Star Tree, or van-lift animations appeared; adds a draw-error guard so animation art errors cannot block level advancement.
 
 
-v1.5.0 wording note: integrates the revised lighter-color hockey animation, the revised 9-planet sun animation with larger Jupiter and Saturn, and the revised elephant animation; keeps the dandelion animation above the pins; tightens pin placement so pins do not spawn partly offscreen; and limits each level to only one sun animation total.
+v1.5.0 wording note: Wording-only release changing "Tap anywhere to roll" to "Tap anywhere to play." No gameplay or animation changes intended.
 
-Current release note: v1.5.12 replaces the approved gear, jellybean, and camp wagon special animations and adds Flower Wave Bloom v2. See VERSION.txt for the complete version history.
+Current release note: v1.5.13 removes unreachable branches for unregistered legacy special pin types. See VERSION.txt for the complete version history.
