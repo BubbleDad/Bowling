@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-15-starship-sofa-animations-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-16-jellybean-safe-area-fix-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.15.js',
+  './app-v1.5.16.js',
   './special-animation-galleries.html',
   './special-animation-gallery-page.html',
   './special-animation-preview.html',

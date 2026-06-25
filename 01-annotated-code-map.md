@@ -5,7 +5,7 @@ The playable game remains a single-file JavaScript application for deployment si
 ## Main files
 
 - `index.html`: page shell, canvas, transparent start overlay, audio element, app script, service-worker registration.
-- `app-v1.5.15.js`: main game code.
+- `app-v1.5.16.js`: main game code.
 - `special-animation-galleries.html`: Gallery v1.0 offline review index for the current production special-animation registry.
 - `special-animation-gallery-page.html`: reusable category gallery page.
 - `special-animation-preview.html`: per-animation preview frame that opts into app gallery-preview mode.
@@ -18,7 +18,7 @@ The playable game remains a single-file JavaScript application for deployment si
 
 ## JavaScript sections
 
-Inside `app-v1.5.15.js`, the intended navigation order is:
+Inside `app-v1.5.16.js`, the intended navigation order is:
 
 1. **Canvas, constants, and game state**
    - Canvas setup.
