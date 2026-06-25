@@ -6194,27 +6194,28 @@ function drawUnderarmCrutchesWalkPin(pin, current) {
   }
   function sofashufflefivepillowsv1Draw(context, x, y, scale, elapsed, duration) {
     const progress = sofashufflefivepillowsv1Clamp(elapsed / duration, 0, 1);
-    const sofaY = y - 54 * scale;
 
     context.save();
     context.fillStyle = 'rgba(241,223,213,.68)';
-    context.fillRect(x - 250 * scale, y + 18 * scale, 500 * scale, 44 * scale);
+    context.fillRect(x - 250 * scale, y + 70 * scale, 500 * scale, 44 * scale);
     for (let i = 0; i < 10; i += 1) {
       context.fillStyle = i % 2 ? 'rgba(234,215,204,.58)' : 'rgba(243,230,223,.58)';
-      context.fillRect(x - 250 * scale + i * 50 * scale, y + 18 * scale, 50 * scale, 44 * scale);
+      context.fillRect(x - 250 * scale + i * 50 * scale, y + 70 * scale, 50 * scale, 44 * scale);
     }
 
-    context.translate(x, sofaY);
-    context.fillStyle = '#d58675';
-    sofashufflefivepillowsv1RoundRect(context, -232 * scale, -68 * scale, 464 * scale, 126 * scale, 34 * scale);
+    context.translate(x, y);
+    context.fillStyle = '#d87b4b';
+    sofashufflefivepillowsv1RoundRect(context, -240 * scale, -92 * scale, 480 * scale, 130 * scale, 32 * scale);
     context.fill();
-    context.fillStyle = '#bf6d63';
-    sofashufflefivepillowsv1RoundRect(context, -260 * scale, -38 * scale, 68 * scale, 104 * scale, 28 * scale);
+    context.strokeStyle = '#8b4e2e';
+    context.lineWidth = 4 * scale;
+    context.stroke();
+    context.fillStyle = '#e79a67';
+    sofashufflefivepillowsv1RoundRect(context, -228 * scale, -160 * scale, 456 * scale, 92 * scale, 28 * scale);
     context.fill();
-    sofashufflefivepillowsv1RoundRect(context, 192 * scale, -38 * scale, 68 * scale, 104 * scale, 28 * scale);
-    context.fill();
-    context.fillStyle = '#a85d55';
-    sofashufflefivepillowsv1RoundRect(context, -210 * scale, 8 * scale, 420 * scale, 72 * scale, 22 * scale);
+    context.stroke();
+    context.fillStyle = '#8b4e2e';
+    sofashufflefivepillowsv1RoundRect(context, -246 * scale, 18 * scale, 492 * scale, 26 * scale, 10 * scale);
     context.fill();
     for (const legX of [-188, -65, 65, 188]) {
       context.fillStyle = '#7a452b';
@@ -6225,7 +6226,7 @@ function drawUnderarmCrutchesWalkPin(pin, current) {
     const colors = ['#a9ddff', '#ffc6e6', '#ffffff', '#ffc6e6', '#a9ddff'];
     const homeOffsets = [-150, -75, 0, 75, 150];
     const sideOffsets = [18, 8, 0, -8, -18];
-    const pillowY = y - 149 * scale;
+    const pillowY = y - 95 * scale;
     const pillowW = 78 * scale;
     const pillowH = 58 * scale;
     for (let i = 0; i < 5; i += 1) {
@@ -6481,7 +6482,7 @@ function drawUnderarmCrutchesWalkPin(pin, current) {
     const scale = Math.min(view.w / 900, view.h / 620);
     const marginX = 270 * scale;
     const anchorX = clamp(pin.x, marginX, view.w - marginX);
-    const anchorY = Math.min(pin.y + layout.pinH * 0.70, view.h - 74 * scale);
+    const anchorY = Math.min(pin.y + layout.pinH * 0.70, view.h - 90 * scale);
     sofashufflefivepillowsv1Draw(ctx, anchorX, anchorY, scale, elapsed, pin.rocket.duration);
   }
 
