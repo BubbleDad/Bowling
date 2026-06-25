@@ -1,6 +1,6 @@
 # Animation Registry Reference
 
-Registry entry count: 71
+Registry entry count: 75
 
 Each special pin animation should be represented here before it appears in gameplay.
 
@@ -77,3 +77,7 @@ Each special pin animation should be represented here before it appears in gamep
 | `streetcarbellroll` | Streetcar Bell Roll | `staticTimed` | True | `` | `streetcarbellv1DrawPin` |
 | `campwagonv2` | Camp Wagon Roll | `staticTimed` | True | `` | `campwagonv2DrawPin` |
 | `flowerwavev2` | Flower Wave Bloom | `staticTimed` | True | `` | `flowerwavev2DrawPin` |
+| `garbagebinlift` | Garbage Bin Lift | `staticTimed` | True | `` | `garbagebinliftv11DrawPin` |
+| `gimmelthreedrums` | Gimmel Three Drums | `staticTimed` | True | `` | `gimmelthreedrumsv3DrawPin` |
+| `friendlystarshipglide` | Friendly Starship Glide | `staticTimed` | True | `` | `friendlystarshipglidev1DrawPin` |
+| `sofashufflefivepillows` | Sofa Shuffle Five Pillows | `staticTimed` | True | `` | `sofashufflefivepillowsv1DrawPin` |

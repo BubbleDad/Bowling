@@ -12,12 +12,21 @@
 
 ## Version check
 
-For v1.5.13:
+For v1.5.15 plus Special Animation Gallery v1.0:
 
-- `index.html` should reference `app-v1.5.13.js`.
-- `sw.js` should cache `./app-v1.5.13.js`.
-- `sw.js` should use `meowmoon-bowling-v1-5-13-legacy-branch-cleanup-cache`.
-- the console marker should say v1.5.13.
+- `index.html` should reference `app-v1.5.15.js`.
+- `sw.js` should cache `./app-v1.5.15.js`.
+- `sw.js` should cache the gallery files:
+  - `./special-animation-galleries.html`
+  - `./special-animation-gallery-page.html`
+  - `./special-animation-preview.html`
+  - `./special-animation-gallery.css`
+  - `./special-animation-gallery-data.js`
+  - `./special-animation-gallery.js`
+  - `./special-animation-gallery-app-v1.0.js`
+- `sw.js` should use `meowmoon-bowling-v1-5-15-starship-sofa-animations-cache`.
+- the playable game console marker should say v1.5.15.
+- the gallery preview runtime console marker should say Gallery v1.0.
 
 ## If old behavior appears
 

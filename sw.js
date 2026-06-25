@@ -1,8 +1,15 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-13-legacy-branch-cleanup-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-15-starship-sofa-animations-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.13.js',
+  './app-v1.5.15.js',
+  './special-animation-galleries.html',
+  './special-animation-gallery-page.html',
+  './special-animation-preview.html',
+  './special-animation-gallery.css',
+  './special-animation-gallery-data.js',
+  './special-animation-gallery.js',
+  './special-animation-gallery-app-v1.0.js',
   './manifest.webmanifest',
   './assets/images/icon-192.png',
   './assets/images/icon-512.png',
@@ -18,5 +25,13 @@ self.addEventListener('activate', event => {
 });
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).catch(() => caches.match('./index.html'))));
+  event.respondWith(caches.match(event.request).then(cached => {
+    if (cached) return cached;
+    const url = new URL(event.request.url);
+    if (url.origin === self.location.origin) {
+      const querylessAsset = './' + (url.pathname.split('/').pop() || '');
+      return caches.match(querylessAsset).then(queryless => queryless || fetch(event.request).catch(() => caches.match('./index.html')));
+    }
+    return fetch(event.request).catch(() => caches.match('./index.html'));
+  }));
 });
