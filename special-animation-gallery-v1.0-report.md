@@ -2,7 +2,7 @@
 
 Adds offline review tooling for all current production special animations.
 This is a gallery/tooling version, not a Meowmoon Bowling game version.
-The playable game is currently `v1.5.16 jellybean-safe-area-fix`.
+The playable game is currently `v1.5.18 friendlystarship-center-anchor`.
 
 ## Files added
 

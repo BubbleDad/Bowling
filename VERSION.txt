@@ -1,7 +1,7 @@
 Meowmoon Bowling
-Version: v1.5.17 cardinalflyoff-top-safe-area
-App file: app-v1.5.17.js
-Cache name: meowmoon-bowling-v1-5-17-cardinalflyoff-top-safe-area-cache
+Version: v1.5.18 friendlystarship-center-anchor
+App file: app-v1.5.18.js
+Cache name: meowmoon-bowling-v1-5-18-friendlystarship-center-anchor-cache
 
 Cleanup status:
 1. Central animation registry: complete
@@ -45,7 +45,7 @@ v1.5.12 animation-replacements note: Replaces Millyard Gear Machine with approve
 
 v1.5.13 legacy-branch-cleanup note: Removes unreachable launch/update/audio branches for unregistered legacy special pin types fish, penguin, treasure, wheelchair sprint, volleyball spike, ski jump, and gymnastics flip. No registered animation, gameplay, pin count, startup overlay, phase-state, lifecycle, ball-special, cache behavior beyond version/cache bump, or visual-design changes intended.
 
-Special Animation Gallery v1.0 note: Adds offline review-gallery tooling for the current production special animations, with category pages, per-animation preview frames, pause/restart controls, large preview mode, and registry-count checks. This is a gallery/tooling descriptor, not a Meowmoon Bowling game version. As of game v1.5.17 the gallery inventory contains 75 production animations.
+Special Animation Gallery v1.0 note: Adds offline review-gallery tooling for the current production special animations, with category pages, per-animation preview frames, pause/restart controls, large preview mode, and registry-count checks. This is a gallery/tooling descriptor, not a Meowmoon Bowling game version. As of game v1.5.18 the gallery inventory contains 75 production animations.
 
 v1.5.14 garbage-gimmel-animations note: Adds the approved Garbage Bin Lift v11 and Gimmel Three Drums v3 as registered special pin animations with ids `garbagebinlift` and `gimmelthreedrums`. No gameplay rules, scoring, pin counts, startup overlay behavior, phase-state rules, or external dependencies changed.
 
@@ -54,3 +54,5 @@ v1.5.15 starship-sofa-animations note: Adds the approved Friendly Starship Glide
 v1.5.16 jellybean-safe-area-fix note: Caps the Jellybean Row Color Pop v3 wrapper scale using its full horizontal draw extent so the purple rightmost house remains visible on narrow tablet/mobile canvases. No animation timing, house count, color order, scoring, pin counts, startup overlay behavior, phase-state rules, or external dependencies changed.
 
 v1.5.17 cardinalflyoff-top-safe-area note: Adds a top-edge safe-area offset to Cardinal Flies Off Screen v1 so its launch pose remains fully visible for top-row pins while preserving the later offscreen flight. No animation duration, scoring, pin counts, startup overlay behavior, phase-state rules, or external dependencies changed.
+
+v1.5.18 friendlystarship-center-anchor note: Forces Friendly Starship Glide v1 to render from the logical screen-center anchor instead of the triggering pin location so edge-triggered starship previews are not clipped. Registry key, duration, trigger logic, scoring, pin counts, startup overlay behavior, phase-state rules, and external dependencies are unchanged.

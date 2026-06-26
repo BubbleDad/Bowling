@@ -1,8 +1,8 @@
-const CACHE_NAME = 'meowmoon-bowling-v1-5-17-cardinalflyoff-top-safe-area-cache';
+const CACHE_NAME = 'meowmoon-bowling-v1-5-18-friendlystarship-center-anchor-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './app-v1.5.17.js',
+  './app-v1.5.18.js',
   './special-animation-galleries.html',
   './special-animation-gallery-page.html',
   './special-animation-preview.html',

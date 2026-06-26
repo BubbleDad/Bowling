@@ -14,8 +14,8 @@
 
 For v1.5.15 plus Special Animation Gallery v1.0:
 
-- `index.html` should reference `app-v1.5.17.js`.
-- `sw.js` should cache `./app-v1.5.17.js`.
+- `index.html` should reference `app-v1.5.18.js`.
+- `sw.js` should cache `./app-v1.5.18.js`.
 - `sw.js` should cache the gallery files:
   - `./special-animation-galleries.html`
   - `./special-animation-gallery-page.html`
@@ -24,8 +24,8 @@ For v1.5.15 plus Special Animation Gallery v1.0:
   - `./special-animation-gallery-data.js`
   - `./special-animation-gallery.js`
   - `./special-animation-gallery-app-v1.0.js`
-- `sw.js` should use `meowmoon-bowling-v1-5-17-cardinalflyoff-top-safe-area-cache`.
-- the playable game console marker should say v1.5.15.
+- `sw.js` should use `meowmoon-bowling-v1-5-18-friendlystarship-center-anchor-cache`.
+- the playable game console marker should say v1.5.18.
 - the gallery preview runtime console marker should say Gallery v1.0.
 
 ## If old behavior appears
