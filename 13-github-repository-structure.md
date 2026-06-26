@@ -6,7 +6,7 @@ Recommended repository layout:
 meowmoon-bowling/
   game/
     index.html
-    app-v1.5.16.js
+    app-v1.5.17.js
     sw.js
     manifest.webmanifest
     VERSION.txt
@@ -28,11 +28,11 @@ meowmoon-bowling/
 1. Create repo.
 2. Copy current `game/`.
 3. Copy docs.
-4. Confirm `index.html` loads the current versioned app file, currently `app-v1.5.16.js`.
+4. Confirm `index.html` loads the current versioned app file, currently `app-v1.5.17.js`.
 5. Confirm `sw.js` caches the same current versioned app file.
 6. Run JavaScript syntax check:
    ```bash
-   node --check game/app-v1.5.16.js
+   node --check game/app-v1.5.17.js
    ```
 7. Commit as:
    ```text
